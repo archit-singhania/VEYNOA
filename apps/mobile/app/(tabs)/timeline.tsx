@@ -1,9 +1,22 @@
 import { useMemo, useState } from "react";
 import { router } from "expo-router";
+import { View, Pressable } from "react-native";
 import { dayKey } from "@veynoa/domain";
 import { cloud, useApp } from "../../src/stores/app";
-import { Button, Card, Field, Label, Page, Row } from "../../src/components/ui";
+import {
+  Button,
+  Card,
+  Field,
+  Label,
+  Page,
+  Row,
+  Eyebrow,
+  serif,
+  useTheme,
+} from "../../src/components/ui";
+import { Icon } from "../../src/components/Icon";
 export default function Timeline() {
+  const t = useTheme();
   const notes = useApp((s) => s.notes);
   const localOnly = useApp((s) => s.settings.localOnly);
   const [date, setDate] = useState(dayKey());
@@ -66,11 +79,29 @@ export default function Timeline() {
   return (
     <Page
       title="Days into stories."
+      eyebrow="THE TIMELINE"
       subtitle="A quiet record of where your mind has been."
     >
-      <Card>
-        <Label size={22}>Your DayStory</Label>
+      <Card style={{ backgroundColor: t.tint, borderColor: "transparent" }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Eyebrow>THE DAILY REFLECTION</Eyebrow>
+          <Icon name="sun" color={t.gold} size={24} />
+        </View>
+        <Label size={29} style={{ fontFamily: serif }}>
+          Find the shape of your day.
+        </Label>
+        <Label muted size={13}>
+          Gather the moments, ideas, and open threads into one thoughtful
+          reflection.
+        </Label>
         <Field
+          editable={!busy}
           accessibilityLabel="DayStory date YYYY-MM-DD"
           value={date}
           onChangeText={(v) => {
@@ -85,6 +116,7 @@ export default function Timeline() {
         </Label>
         <Button
           primary
+          icon="spark"
           disabled={
             localOnly ||
             daily.length < 2 ||
@@ -115,27 +147,73 @@ export default function Timeline() {
         )}
       </Card>
       {Object.entries(groups).map(([day, items]) => (
-        <Card key={day}>
-          <Label muted size={12}>
-            {day}
-          </Label>
-          {items.map((n) => (
-            <Row key={n.id}>
-              <Label muted size={12}>
-                {new Date(n.createdAt).toLocaleTimeString(undefined, {
-                  hour: "2-digit",
-                  minute: "2-digit",
+        <View key={day} style={{ gap: 20 }}>
+          <Row>
+            <View
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: t.gold,
+              }}
+            />
+            <Eyebrow>
+              {new Date(day + "T12:00:00").toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </Eyebrow>
+          </Row>
+          <View
+            style={{
+              marginLeft: 3,
+              borderLeftWidth: 1,
+              borderColor: t.line,
+              paddingLeft: 24,
+              gap: 12,
+            }}
+          >
+            {items.map((n) => (
+              <Pressable
+                key={n.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${n.title || "Untitled thought"}`}
+                onPress={() => router.push(`/notes/${n.id}`)}
+                style={({ pressed }) => ({
+                  padding: 22,
+                  borderRadius: 17,
+                  backgroundColor: t.card,
+                  borderWidth: 1,
+                  borderColor: t.line,
+                  gap: 8,
+                  opacity: pressed ? 0.6 : 1,
                 })}
-              </Label>
-              <Button onPress={() => router.push(`/notes/${n.id}`)}>
-                {n.title || "Untitled thought"}
-              </Button>
-              <Label muted size={12}>
-                {n.kind}
-              </Label>
-            </Row>
-          ))}
-        </Card>
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Eyebrow>{n.kind}</Eyebrow>
+                  <Label muted size={10}>
+                    {new Date(n.createdAt).toLocaleTimeString(undefined, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Label>
+                </View>
+                <Label size={23} style={{ fontFamily: serif }}>
+                  {n.title || "Untitled thought"}
+                </Label>
+                <Label muted size={13} numberOfLines={2}>
+                  {n.body || "A moment to return to."}
+                </Label>
+              </Pressable>
+            ))}
+          </View>
+        </View>
       ))}
       {!notes.length && (
         <Label muted>Your timeline begins with your first thought.</Label>

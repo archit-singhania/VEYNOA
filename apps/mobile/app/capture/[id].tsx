@@ -21,6 +21,8 @@ import {
   Page,
   Row,
   useTheme,
+  serif,
+  Eyebrow,
 } from "../../src/components/ui";
 export default function Capture() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -168,16 +170,23 @@ export default function Capture() {
     );
   return (
     <Page
-      title="Let it unfold."
+      title="You speak. We make space."
+      eyebrow="VOICE STUDIO"
       subtitle="A thought doesn’t have to arrive fully formed."
     >
       <Orb
+        size={220}
         listening={state.isRecording}
         level={Math.max(0, ((state.metering ?? -60) + 60) / 60)}
       />
       <Label
         size={30}
-        style={{ textAlign: "center", fontVariant: ["tabular-nums"] }}
+        style={{
+          textAlign: "center",
+          fontVariant: ["tabular-nums"],
+          fontFamily: serif,
+          letterSpacing: 3,
+        }}
       >
         {Math.floor((totalSeconds * 1000 + state.durationMillis) / 60000)
           .toString()

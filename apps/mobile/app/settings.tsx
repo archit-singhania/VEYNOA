@@ -1,14 +1,27 @@
 import { useState } from "react";
-import { Alert, Platform, Switch } from "react-native";
+import { Platform, Switch, Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { markdown } from "@veynoa/domain";
 import { repository } from "../src/database/repository";
 import { useApp } from "../src/stores/app";
-import { Button, Card, Field, Label, Page, Row } from "../src/components/ui";
+import {
+  Button,
+  Card,
+  Field,
+  Label,
+  Page,
+  Row,
+  Eyebrow,
+  useTheme,
+  serif,
+} from "../src/components/ui";
+import { palettes, type Palette } from "../src/theme/tokens";
+import { Icon } from "../src/components/Icon";
 export default function Settings() {
   const settings = useApp((s) => s.settings);
+  const t = useTheme();
   const jobs = useApp((s) => s.jobs);
   const [url, setUrl] = useState(settings.gatewayUrl);
   const [confirm, setConfirm] = useState("");
@@ -68,9 +81,134 @@ export default function Settings() {
       }
     >
       <Card>
+        <Eyebrow>THE ATMOSPHERE</Eyebrow>
+        <Label size={27} style={{ fontFamily: serif }}>
+          A space that feels like you.
+        </Label>
+        <Label muted size={13}>
+          Three considered palettes. A different mood, the same clarity.
+        </Label>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
+          {(Object.entries(palettes) as [Palette, typeof palettes.grove][]).map(
+            ([key, p]) => {
+              const selected = (settings.palette || "grove") === key;
+              const colors = p[t.dark ? "dark" : "light"];
+              return (
+                <Pressable
+                  key={key}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p.name} palette`}
+                  accessibilityState={{ selected }}
+                  aria-pressed={selected}
+                  onPress={() => run(() => save({ palette: key }))}
+                  style={{
+                    flexGrow: 1,
+                    flexBasis: 180,
+                    borderRadius: 17,
+                    borderWidth: 2,
+                    borderColor: selected ? t.accent : t.line,
+                    padding: 10,
+                    gap: 11,
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: colors.bg,
+                      height: 100,
+                      borderRadius: 10,
+                      padding: 12,
+                      flexDirection: "row",
+                      gap: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 24,
+                        backgroundColor: colors.soft,
+                        borderRadius: 5,
+                      }}
+                    />
+                    <View style={{ flex: 1, gap: 7 }}>
+                      <View
+                        style={{
+                          height: 37,
+                          backgroundColor: colors.hero,
+                          borderRadius: 6,
+                        }}
+                      />
+                      <View style={{ flexDirection: "row", gap: 5, flex: 1 }}>
+                        <View
+                          style={{
+                            flex: 1,
+                            backgroundColor: colors.card,
+                            borderRadius: 5,
+                            borderWidth: 1,
+                            borderColor: colors.line,
+                          }}
+                        />
+                        <View
+                          style={{
+                            flex: 1,
+                            backgroundColor: colors.tint,
+                            borderRadius: 5,
+                          }}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                  <View
+                    style={{
+                      paddingHorizontal: 4,
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <View>
+                      <Label size={14} style={{ fontWeight: "600" }}>
+                        {p.name}
+                      </Label>
+                      <Label muted size={11}>
+                        {p.description}
+                      </Label>
+                    </View>
+                    {selected && (
+                      <Icon name="check" color={t.accent} size={18} />
+                    )}
+                  </View>
+                </Pressable>
+              );
+            },
+          )}
+        </View>
+        <Row>
+          {(["system", "light", "dark"] as const).map((theme) => (
+            <Button
+              key={theme}
+              primary={settings.theme === theme}
+              icon={
+                theme === "dark"
+                  ? "moon"
+                  : theme === "light"
+                    ? "sun"
+                    : "settings"
+              }
+              onPress={() => run(() => save({ theme }))}
+            >
+              {theme === "system"
+                ? "Match device"
+                : theme === "light"
+                  ? "Light"
+                  : "Dark"}
+            </Button>
+          ))}
+        </Row>
+      </Card>
+      <Card>
         <Label size={22}>Privacy first</Label>
         <Row>
           <Switch
+            trackColor={{ false: t.line, true: t.accent }}
+            thumbColor={t.card}
             accessibilityLabel="Local-only mode"
             value={settings.localOnly}
             onValueChange={(localOnly) => run(() => save({ localOnly }))}
@@ -125,18 +263,6 @@ export default function Settings() {
               onPress={() => run(() => save({ greeting }))}
             >
               {greeting === "daily" ? "Once per day" : greeting}
-            </Button>
-          ))}
-        </Row>
-        <Label>Appearance</Label>
-        <Row>
-          {(["system", "light", "dark"] as const).map((theme) => (
-            <Button
-              key={theme}
-              primary={settings.theme === theme}
-              onPress={() => run(() => save({ theme }))}
-            >
-              {theme}
             </Button>
           ))}
         </Row>

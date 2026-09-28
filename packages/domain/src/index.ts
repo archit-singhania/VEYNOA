@@ -46,6 +46,7 @@ export interface Settings {
   greeting: "always" | "daily" | "never";
   lastGreeting: string;
   theme: "system" | "light" | "dark";
+  palette?: "grove" | "dusk" | "tide";
   installationId: string;
 }
 export const defaults: Omit<Settings, "installationId"> = {
@@ -54,6 +55,7 @@ export const defaults: Omit<Settings, "installationId"> = {
   greeting: "daily",
   lastGreeting: "",
   theme: "system",
+  palette: "grove",
 };
 export function dayKey(time = Date.now()) {
   const d = new Date(time);

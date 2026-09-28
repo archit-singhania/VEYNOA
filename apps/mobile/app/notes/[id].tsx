@@ -18,6 +18,8 @@ import {
   Page,
   Row,
   useTheme,
+  Eyebrow,
+  serif,
 } from "../../src/components/ui";
 function Playback({ recording }: { recording: Recording }) {
   const player = useAudioPlayer(recording.uri);
@@ -99,7 +101,9 @@ export default function Editor() {
   };
   return (
     <Page
-      title="A little space."
+      title="Make room for a thought."
+      eyebrow="THE NOTEBOOK"
+      compact
       subtitle={status}
       action={
         <Button
@@ -112,47 +116,85 @@ export default function Editor() {
       }
     >
       <Row>
-        <Button onPress={() => void update({ pinned: !note.pinned })}>
+        <Button
+          icon="pin"
+          onPress={() => void update({ pinned: !note.pinned })}
+        >
           {note.pinned ? "Unpin" : "Pin"}
         </Button>
-        <Button onPress={() => void update({ archived: !note.archived })}>
+        <Button
+          icon="archive"
+          onPress={() => void update({ archived: !note.archived })}
+        >
           {note.archived ? "Restore" : "Archive"}
         </Button>
-        <Button onPress={() => router.push(`/capture/${id}`)}>Speak</Button>
-        <Button onPress={() => router.push(`/canvas/${id}`)}>
+        <Button
+          primary
+          icon="mic"
+          onPress={() => router.push(`/capture/${id}`)}
+        >
+          Speak
+        </Button>
+        <Button icon="spark" onPress={() => router.push(`/canvas/${id}`)}>
           Bloom / Canvas
         </Button>
       </Row>
-      <Field
-        accessibilityLabel="Note title"
-        placeholder="Untitled thought"
-        value={note.title}
-        maxLength={300}
-        onChangeText={(title) => void update({ title })}
-        style={{
-          fontSize: 27,
-          fontWeight: "600",
-          borderWidth: 0,
-          backgroundColor: "transparent",
-          paddingHorizontal: 0,
-        }}
-      />
-      <Field
-        accessibilityLabel="Note content"
-        placeholder="Start typing, or speak. There’s no wrong place to begin."
-        multiline
-        textAlignVertical="top"
-        value={note.body}
-        onChangeText={(body) => void update({ body })}
-        style={{
-          minHeight: 280,
-          fontSize: 18,
-          lineHeight: 29,
-          borderWidth: 0,
-          backgroundColor: "transparent",
-          paddingHorizontal: 0,
-        }}
-      />
+      <Card style={{ padding: 26, gap: 12, borderRadius: 22 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Eyebrow>
+            {note.kind} ·{" "}
+            {new Date(note.createdAt).toLocaleDateString(undefined, {
+              month: "long",
+              day: "numeric",
+            })}
+          </Eyebrow>
+          <Label muted size={10}>
+            {note.body.trim() ? note.body.trim().split(/\s+/).length : 0} words
+          </Label>
+        </View>
+        <Field
+          accessibilityLabel="Note title"
+          multiline
+          placeholder="Untitled thought"
+          value={note.title}
+          maxLength={300}
+          onChangeText={(title) => void update({ title })}
+          style={{
+            fontSize: 32,
+            fontFamily: serif,
+            lineHeight: 42,
+            borderWidth: 0,
+            backgroundColor: "transparent",
+            paddingHorizontal: 0,
+          }}
+        />
+        <Field
+          accessibilityLabel="Note content"
+          placeholder="Start typing, or speak. There’s no wrong place to begin."
+          multiline
+          textAlignVertical="top"
+          value={note.body}
+          onChangeText={(body) => void update({ body })}
+          style={{
+            minHeight: 310,
+            fontSize: 16,
+            lineHeight: 30,
+            borderWidth: 0,
+            backgroundColor: "transparent",
+            paddingHorizontal: 0,
+          }}
+        />
+        <View style={{ height: 1, backgroundColor: t.line }} />
+        <Label muted size={11}>
+          {status}
+        </Label>
+      </Card>
       <Row>
         {(["note", "idea", "task", "journal", "project"] as Kind[]).map(
           (kind) => (
@@ -171,13 +213,10 @@ export default function Editor() {
           {note.completed ? "Reopen task" : "Mark complete"}
         </Button>
       )}
-      {suggestions.length > 0 && (
-        <Card>
+      {suggestions.filter((s) => s.kind !== note.kind).length > 0 && (
+        <Card style={{ backgroundColor: t.soft, borderColor: "transparent" }}>
           <Label style={{ color: t.accent }}>
-            ✦{" "}
-            {analysis
-              ? "Veynoa noticed something"
-              : "A small suggestion · on-device rules"}
+            ✦ {analysis ? "Veynoa noticed something" : "A little perspective"}
           </Label>
           {suggestions
             .filter((s) => s.kind !== note.kind)

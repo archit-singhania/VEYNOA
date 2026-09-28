@@ -134,7 +134,8 @@ export default function Canvas() {
   };
   return (
     <Page
-      title="Room to branch."
+      title="Give your ideas room."
+      eyebrow="THE THINKING CANVAS"
       subtitle="Drag a thought. Follow a possibility."
       action={
         <Button
