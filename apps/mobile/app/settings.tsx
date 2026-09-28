@@ -19,6 +19,7 @@ import {
 } from "../src/components/ui";
 import { palettes, type Palette } from "../src/theme/tokens";
 import { Icon } from "../src/components/Icon";
+import { checkGateway } from "../src/services/ai";
 export default function Settings() {
   const settings = useApp((s) => s.settings);
   const t = useTheme();
@@ -26,6 +27,7 @@ export default function Settings() {
   const [url, setUrl] = useState(settings.gatewayUrl);
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
+  const [checking, setChecking] = useState(false);
   const save = useApp((s) => s.setSettings);
   const run = (fn: () => Promise<unknown>) =>
     void fn().catch(useApp.getState().fail);
@@ -251,6 +253,22 @@ export default function Settings() {
         >
           Save gateway
         </Button>
+        <Button
+          disabled={!url.trim() || checking}
+          onPress={() =>
+            run(async () => {
+              setChecking(true);
+              setMessage("");
+              try {
+                setMessage(await checkGateway(url.trim()));
+              } finally {
+                setChecking(false);
+              }
+            })
+          }
+        >
+          {checking ? "Checking connection…" : "Test connection"}
+        </Button>
         {!!message && <Label muted>{message}</Label>}
       </Card>
       <Card>
@@ -266,6 +284,43 @@ export default function Settings() {
             </Button>
           ))}
         </Row>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Label>Gentle motion</Label>
+            <Label muted size={12}>
+              Soft entrances and spring feedback. Device reduced-motion settings
+              always take priority.
+            </Label>
+          </View>
+          <Switch
+            accessibilityLabel="Gentle motion"
+            value={settings.motionEffects !== false}
+            trackColor={{ false: t.line, true: t.accent }}
+            thumbColor={t.card}
+            onValueChange={(motionEffects) =>
+              run(() => save({ motionEffects }))
+            }
+          />
+        </View>
+      </Card>
+      <Card>
+        <Eyebrow>A SECOND CHANCE</Eyebrow>
+        <Label size={24} style={{ fontFamily: serif }}>
+          Recently deleted
+        </Label>
+        <Label muted size={13}>
+          Restore a thought, together with its recordings and canvas.
+        </Label>
+        <Button icon="archive" onPress={() => router.push("/trash")}>
+          Open Recently deleted
+        </Button>
       </Card>
       <Card>
         <Label size={22}>Processing queue</Label>

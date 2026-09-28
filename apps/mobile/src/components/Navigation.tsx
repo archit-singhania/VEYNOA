@@ -5,6 +5,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Brand, Button, Eyebrow, Label, useTheme } from "./ui";
 import { Icon, type IconName } from "./Icon";
 import { useApp } from "../stores/app";
+import { useInterface } from "../stores/interface";
 const entries: Record<
   string,
   { label: string; icon: IconName; description: string }
@@ -37,12 +38,7 @@ export function Navigation({ state, navigation }: BottomTabBarProps) {
   const localOnly = useApp((s) => s.settings.localOnly);
   const count = useApp((s) => s.notes.filter((n) => !n.archived).length);
   const add = async () => {
-    try {
-      const n = await useApp.getState().create();
-      router.push(`/notes/${n.id}`);
-    } catch (e) {
-      useApp.getState().fail(e);
-    }
+    useInterface.getState().openCapture();
   };
   return (
     <View

@@ -8,12 +8,22 @@ import * as Speech from "expo-speech";
 import { dayKey, greeting, shouldGreet } from "@veynoa/domain";
 import { useApp } from "../src/stores/app";
 import { Button, Label, Orb, useTheme } from "../src/components/ui";
+import { MotionProvider, useMotion } from "../src/components/motion";
+import { QuickCapture, ToastHost } from "../src/components/QuickCapture";
 export { ErrorBoundary } from "expo-router";
 export default function Layout() {
+  return (
+    <MotionProvider>
+      <AppLayout />
+    </MotionProvider>
+  );
+}
+function AppLayout() {
   const ready = useApp((s) => s.ready);
   const error = useApp((s) => s.error);
   const busy = useApp((s) => s.busy);
   const t = useTheme();
+  const motion = useMotion();
   useEffect(() => {
     void useApp.getState().init();
     const interval = setInterval(() => void useApp.getState().drain(), 15000);
@@ -43,6 +53,7 @@ export default function Layout() {
           <Stack
             screenOptions={{
               headerShown: false,
+              animation: motion ? "slide_from_right" : "none",
               contentStyle: { backgroundColor: t.bg },
             }}
           >
@@ -54,6 +65,7 @@ export default function Layout() {
             />
             <Stack.Screen name="canvas/[id]" />
             <Stack.Screen name="settings" />
+            <Stack.Screen name="trash" />
           </Stack>
         ) : (
           <View
@@ -85,6 +97,12 @@ export default function Layout() {
               {ready ? "Dismiss" : "Retry opening"}
             </Button>
           </View>
+        )}
+        {ready && (
+          <>
+            <QuickCapture />
+            <ToastHost />
+          </>
         )}
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -9,6 +9,7 @@ import {
 import { router } from "expo-router";
 import { dayKey, greeting, type Note, type Kind } from "@veynoa/domain";
 import { useApp } from "../../src/stores/app";
+import { useInterface } from "../../src/stores/interface";
 import {
   Button,
   Card,
@@ -71,6 +72,10 @@ export default function Notes() {
     [notes, filter, query],
   );
   const add = async (voice = false, kind: Kind = "note") => {
+    if (!voice && kind === "note") {
+      useInterface.getState().openCapture();
+      return;
+    }
     try {
       const n = await useApp.getState().create(kind);
       router.push(voice ? `/capture/${n.id}` : `/notes/${n.id}`);

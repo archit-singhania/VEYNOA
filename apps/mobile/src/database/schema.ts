@@ -16,6 +16,10 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE INDEX jobs_due ON jobs(state,nextAt);
 CREATE INDEX notes_updated ON notes(archived,pinned,updatedAt);
 `,
+  String.raw`
+ALTER TABLE notes ADD COLUMN deletedAt INTEGER;
+CREATE INDEX notes_deleted ON notes(deletedAt);
+`,
 ];
 export function ftsQuery(query: string) {
   return (query.match(/[\p{L}\p{N}]+/gu) ?? [])

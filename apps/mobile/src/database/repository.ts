@@ -56,14 +56,17 @@ export const repository = {
       await (
         await db()
       ).getAllAsync<Note>(
-        "SELECT * FROM notes ORDER BY pinned DESC, updatedAt DESC",
+        "SELECT * FROM notes WHERE deletedAt IS NULL ORDER BY pinned DESC, updatedAt DESC",
       )
     ).map(toNote);
   },
   async get(id: string) {
     const n = await (
       await db()
-    ).getFirstAsync<Note>("SELECT * FROM notes WHERE id=?", id);
+    ).getFirstAsync<Note>(
+      "SELECT * FROM notes WHERE id=? AND deletedAt IS NULL",
+      id,
+    );
     return n ? toNote(n) : null;
   },
   async create(kind: Note["kind"] = "note", body = "", title = "") {
@@ -93,11 +96,20 @@ export const repository = {
     );
     return n;
   },
+  async capture(kind: Note["kind"], body: string, title: string) {
+    const d = await db();
+    let note: Note | undefined;
+    await d.withTransactionAsync(async () => {
+      note = await this.create(kind, body, title);
+      await this.saveDraft("");
+    });
+    return note!;
+  },
   async save(n: Note) {
     await (
       await db()
     ).runAsync(
-      "UPDATE notes SET title=?,body=?,kind=?,updatedAt=?,pinned=?,archived=?,completed=?,revision=? WHERE id=?",
+      "UPDATE notes SET title=?,body=?,kind=?,updatedAt=?,pinned=?,archived=?,completed=?,revision=? WHERE id=? AND deletedAt IS NULL",
       n.title,
       n.body,
       n.kind,
@@ -110,6 +122,47 @@ export const repository = {
     );
   },
   async remove(id: string) {
+    const d = await db();
+    await d.withTransactionAsync(async () => {
+      await d.runAsync(
+        "UPDATE notes SET deletedAt=? WHERE id=?",
+        Date.now(),
+        id,
+      );
+      await d.runAsync("DELETE FROM jobs WHERE noteId=?", id);
+    });
+  },
+  async trash() {
+    return (
+      await (
+        await db()
+      ).getAllAsync<Note>(
+        "SELECT * FROM notes WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC",
+      )
+    ).map(toNote);
+  },
+  async restore(id: string) {
+    await (
+      await db()
+    ).runAsync("UPDATE notes SET deletedAt=NULL WHERE id=?", id);
+  },
+  async purge(id: string) {
+    const trashed = await (
+      await db()
+    ).getFirstAsync(
+      "SELECT id FROM notes WHERE id=? AND deletedAt IS NOT NULL",
+      id,
+    );
+    if (!trashed)
+      throw new Error(
+        "Only thoughts in Recently deleted can be permanently removed.",
+      );
+    const recordings = await this.recordings(id);
+    if (Platform.OS !== "web")
+      for (const r of recordings) {
+        const file = new (await import("expo-file-system")).File(r.uri);
+        if (file.exists) file.delete();
+      }
     await (await db()).runAsync("DELETE FROM notes WHERE id=?", id);
   },
   async search(query: string) {
@@ -134,7 +187,7 @@ export const repository = {
       await (
         await db()
       ).getAllAsync<Note>(
-        "SELECT n.* FROM notes n JOIN notes_fts f ON n.rowid=f.rowid WHERE notes_fts MATCH ? AND n.archived=0 ORDER BY rank LIMIT 50",
+        "SELECT n.* FROM notes n JOIN notes_fts f ON n.rowid=f.rowid WHERE notes_fts MATCH ? AND n.archived=0 AND n.deletedAt IS NULL ORDER BY rank LIMIT 50",
         q,
       )
     ).map(toNote);
@@ -150,6 +203,22 @@ export const repository = {
     await this.setSettings(s);
     return s;
   },
+  async draft() {
+    const r = await (
+      await db()
+    ).getFirstAsync<{ value: string }>(
+      "SELECT value FROM settings WHERE key='captureDraft'",
+    );
+    return r?.value || "";
+  },
+  async saveDraft(text: string) {
+    await (
+      await db()
+    ).runAsync(
+      "INSERT OR REPLACE INTO settings(key,value) VALUES('captureDraft',?)",
+      text,
+    );
+  },
   async setSettings(settings: Settings) {
     await (
       await db()
@@ -162,7 +231,7 @@ export const repository = {
     const r = await (
       await db()
     ).getFirstAsync<{ data: string }>(
-      "SELECT a.data FROM analyses a JOIN notes n ON a.noteId=n.id AND a.revision=n.revision WHERE a.noteId=?",
+      "SELECT a.data FROM analyses a JOIN notes n ON a.noteId=n.id AND a.revision=n.revision WHERE a.noteId=? AND n.deletedAt IS NULL",
       id,
     );
     return r ? analysis.parse(JSON.parse(r.data)) : null;
@@ -171,7 +240,7 @@ export const repository = {
     const rows = await (
       await db()
     ).getAllAsync<{ noteId: string; data: string }>(
-      "SELECT a.noteId,a.data FROM analyses a JOIN notes n ON a.noteId=n.id AND a.revision=n.revision",
+      "SELECT a.noteId,a.data FROM analyses a JOIN notes n ON a.noteId=n.id AND a.revision=n.revision WHERE n.deletedAt IS NULL",
     );
     return Object.fromEntries(
       rows.map((r) => [r.noteId, analysis.parse(JSON.parse(r.data))]),
@@ -181,7 +250,7 @@ export const repository = {
     await (
       await db()
     ).runAsync(
-      "INSERT OR REPLACE INTO analyses(noteId,revision,data) SELECT id,revision,? FROM notes WHERE id=? AND revision=?",
+      "INSERT OR REPLACE INTO analyses(noteId,revision,data) SELECT id,revision,? FROM notes WHERE id=? AND revision=? AND deletedAt IS NULL",
       JSON.stringify(data),
       id,
       revision,
@@ -281,7 +350,7 @@ export const repository = {
     await (
       await db()
     ).runAsync(
-      "INSERT OR REPLACE INTO embeddings(noteId,revision,model,vector) SELECT id,revision,?,? FROM notes WHERE id=? AND revision=?",
+      "INSERT OR REPLACE INTO embeddings(noteId,revision,model,vector) SELECT id,revision,?,? FROM notes WHERE id=? AND revision=? AND deletedAt IS NULL",
       model,
       JSON.stringify(vector),
       noteId,
@@ -292,7 +361,7 @@ export const repository = {
     const rows = await (
       await db()
     ).getAllAsync<{ noteId: string; vector: string }>(
-      "SELECT e.noteId,e.vector FROM embeddings e JOIN notes n ON n.id=e.noteId AND n.revision=e.revision WHERE e.model=? AND n.archived=0",
+      "SELECT e.noteId,e.vector FROM embeddings e JOIN notes n ON n.id=e.noteId AND n.revision=e.revision WHERE e.model=? AND n.archived=0 AND n.deletedAt IS NULL",
       model,
     );
     return rows.map((r) => ({
@@ -326,8 +395,12 @@ export const repository = {
       exportedAt: new Date().toISOString(),
       notes: await this.list(),
       analyses: await this.analyses(),
-      recordings: await d.getAllAsync("SELECT * FROM recordings"),
-      canvas: await d.getAllAsync("SELECT * FROM canvas_nodes"),
+      recordings: await d.getAllAsync(
+        "SELECT r.* FROM recordings r JOIN notes n ON r.noteId=n.id WHERE n.deletedAt IS NULL",
+      ),
+      canvas: await d.getAllAsync(
+        "SELECT c.* FROM canvas_nodes c JOIN notes n ON c.noteId=n.id WHERE n.deletedAt IS NULL",
+      ),
     };
   },
   async clear() {

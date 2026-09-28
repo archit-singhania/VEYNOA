@@ -1,6 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import {
-  AccessibilityInfo,
   Animated,
   Pressable,
   ScrollView,
@@ -28,6 +27,8 @@ import Svg, {
 import { useApp } from "../stores/app";
 import { palettes, serif } from "../theme/tokens";
 import { Icon, type IconName } from "./Icon";
+import { Reveal, SpringPressable, useMotion } from "./motion";
+import { useIsFocused } from "@react-navigation/native";
 export { serif };
 export function useTheme() {
   const preference = useApp((s) => s.settings.theme);
@@ -113,7 +114,7 @@ export function Button({
   const t = useTheme();
   const color = primary ? (t.dark ? t.bg : "#FFFEF8") : t.accent;
   return (
-    <Pressable
+    <SpringPressable
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -134,7 +135,6 @@ export function Button({
         borderWidth: primary || quiet ? 0 : 1,
         borderColor: t.line,
         opacity: disabled ? 0.44 : pressed ? 0.72 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
         flexDirection: "row",
         gap: 9,
         alignItems: "center",
@@ -147,7 +147,7 @@ export function Button({
       >
         {children}
       </Text>
-    </Pressable>
+    </SpringPressable>
   );
 }
 export function IconButton({
@@ -300,6 +300,7 @@ export function Page({
   compact?: boolean;
 }) {
   const t = useTheme();
+  const focused = useIsFocused();
   const { width } = useWindowDimensions();
   const small = width < 650;
   const content = (
@@ -398,22 +399,24 @@ export function Page({
       edges={["top", "left", "right"]}
       style={{ flex: 1, backgroundColor: t.bg }}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {scroll ? (
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            contentContainerStyle={{ paddingBottom: 44 }}
-          >
-            {content}
-          </ScrollView>
-        ) : (
-          content
-        )}
-      </KeyboardAvoidingView>
+      <Reveal active={focused} style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          {scroll ? (
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              contentContainerStyle={{ paddingBottom: 44 }}
+            >
+              {content}
+            </ScrollView>
+          ) : (
+            content
+          )}
+        </KeyboardAvoidingView>
+      </Reveal>
     </SafeAreaView>
   );
 }
@@ -429,19 +432,14 @@ export function Orb({
   decorative?: boolean;
 }) {
   const value = useRef(new Animated.Value(1)).current;
-  const [reduced, setReduced] = useState(true);
+  const reduced = !useMotion();
   const t = useTheme();
   const id = useId().replace(/:/g, "");
   useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
-    const sub = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReduced,
-    );
-    return () => sub.remove();
-  }, []);
-  useEffect(() => {
-    if (reduced) return;
+    if (reduced) {
+      value.setValue(1);
+      return;
+    }
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(value, {

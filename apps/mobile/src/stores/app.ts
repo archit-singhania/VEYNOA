@@ -1,17 +1,13 @@
 import { create } from "zustand";
 import { randomUUID } from "expo-crypto";
 import { File } from "expo-file-system";
-import {
-  defaults,
-  cosine,
-  related,
-  retryDelay,
-  type Note,
-  type Settings,
-} from "@veynoa/domain";
+import { defaults, cosine, type Note, type Settings } from "@veynoa/domain";
 import type { Analysis } from "@veynoa/ai-contracts";
 import { repository, type Job } from "../database/repository";
 import { cancelInference, infer } from "../services/ai";
+import { AIRequestError, retryPlan } from "@veynoa/domain/src/retry";
+import { useInterface } from "./interface";
+import { hybridRank, relevantExcerpt } from "@veynoa/domain/src/retrieval";
 
 let writes = Promise.resolve();
 function serialize<T>(work: () => Promise<T>): Promise<T> {
@@ -28,14 +24,17 @@ interface State {
   error: string;
   busy: number;
   notes: Note[];
+  trash: Note[];
   analyses: Record<string, Analysis>;
   jobs: Job[];
   settings: Settings;
   init: () => Promise<void>;
   refresh: () => Promise<void>;
   create: (kind?: Note["kind"], body?: string, title?: string) => Promise<Note>;
+  capture: (kind: Note["kind"], body: string, title: string) => Promise<Note>;
   update: (id: string, patch: Partial<Note>) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  restore: (id: string) => Promise<void>;
   setSettings: (patch: Partial<Settings>) => Promise<void>;
   analyze: (id: string) => Promise<void>;
   drain: () => Promise<void>;
@@ -47,6 +46,7 @@ export const useApp = create<State>((set, get) => ({
   error: "",
   busy: 0,
   notes: [],
+  trash: [],
   analyses: {},
   jobs: [],
   settings: { ...defaults, installationId: "" },
@@ -65,10 +65,11 @@ export const useApp = create<State>((set, get) => ({
     }
   },
   refresh: async () => {
-    const [notes, analyses, jobs] = await Promise.all([
+    const [notes, analyses, jobs, trash] = await Promise.all([
       repository.list(),
       repository.analyses(),
       repository.jobs(),
+      repository.trash(),
     ]);
     set((s) => ({
       notes: notes.map((n) => {
@@ -77,11 +78,18 @@ export const useApp = create<State>((set, get) => ({
       }),
       analyses,
       jobs,
+      trash,
     }));
   },
   create: async (kind = "note", body = "", title = "") =>
     serialize(async () => {
       const n = await repository.create(kind, body, title);
+      set((s) => ({ notes: [n, ...s.notes] }));
+      return n;
+    }),
+  capture: async (kind, body, title) =>
+    serialize(async () => {
+      const n = await repository.capture(kind, body, title);
       set((s) => ({ notes: [n, ...s.notes] }));
       return n;
     }),
@@ -119,13 +127,19 @@ export const useApp = create<State>((set, get) => ({
   },
   remove: async (id) =>
     serialize(async () => {
-      const recordings = await repository.recordings(id);
-      for (const r of recordings) {
-        const file = new File(r.uri);
-        if (file.exists) file.delete();
-      }
       await repository.remove(id);
       await get().refresh();
+      useInterface.getState().notify({
+        message: "Moved to Recently deleted",
+        actionLabel: "Undo",
+        action: () => void get().restore(id).catch(get().fail),
+      });
+    }),
+  restore: async (id) =>
+    serialize(async () => {
+      await repository.restore(id);
+      await get().refresh();
+      useInterface.getState().notify({ message: "Thought restored" });
     }),
   setSettings: async (patch) => {
     const settings = { ...get().settings, ...patch };
@@ -178,13 +192,24 @@ export const useApp = create<State>((set, get) => ({
               await repository.deleteJob(job.id);
               continue;
             }
-            const result = await infer(
-              "analyze",
-              { text: note.title + "\n" + note.body },
-              get().settings,
-            );
-            if (get().settings.localOnly) throw new Error("Cloud AI disabled.");
+            const result =
+              (await repository.analysis(note.id)) ??
+              (await infer(
+                "analyze",
+                { text: note.title + "\n" + note.body },
+                get().settings,
+              ));
+            if (get().settings.localOnly)
+              throw new AIRequestError("Cloud AI disabled.", true, 0, true);
             await repository.saveAnalysis(note.id, note.revision, result);
+            if (
+              !get().notes.some(
+                (n) => n.id === note.id && n.revision === note.revision,
+              )
+            ) {
+              await repository.deleteJob(job.id);
+              continue;
+            }
             const vectors = await infer(
               "embed",
               { texts: [note.title + "\n" + note.body] },
@@ -207,7 +232,7 @@ export const useApp = create<State>((set, get) => ({
                 get().settings,
               );
               if (get().settings.localOnly)
-                throw new Error("Cloud AI disabled.");
+                throw new AIRequestError("Cloud AI disabled.", true, 0, true);
               await serialize(async () => {
                 const current = get().notes.find((n) => n.id === note.id);
                 if (!current) return;
@@ -229,12 +254,12 @@ export const useApp = create<State>((set, get) => ({
           await repository.deleteJob(job.id);
         } catch (e) {
           if (job.type === "transcribe") blockedTranscripts.add(job.noteId);
-          const attempts = job.attempts + 1;
+          const plan = retryPlan(e, job.attempts, Date.now(), Math.random());
           await repository.jobState(
             job.id,
-            attempts >= 5 ? "failed" : "pending",
-            attempts,
-            Date.now() + retryDelay(attempts),
+            plan.state,
+            plan.attempts,
+            plan.nextAt,
             e instanceof Error ? e.message : "Inference failed",
           );
         } finally {
@@ -255,13 +280,20 @@ export const useApp = create<State>((set, get) => ({
       await repository.clear();
       const settings = { ...defaults, installationId: randomUUID() };
       await repository.setSettings(settings);
-      set({ settings, notes: [], analyses: {}, jobs: [], error: "" });
+      set({
+        settings,
+        notes: [],
+        trash: [],
+        analyses: {},
+        jobs: [],
+        error: "",
+      });
     });
   },
 }));
 export async function retrieve(question: string, semantic = false) {
   const s = useApp.getState();
-  let matches = related(s.notes, question).map((x) => x.note);
+  let matches = hybridRank(s.notes, question);
   if (semantic) {
     const result = await cloud("embed", { texts: [question] });
     const vectors = await repository.embeddings(result.model);
@@ -273,14 +305,12 @@ export async function retrieve(question: string, semantic = false) {
       .filter((v) => v.score > 0.25)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
-    matches = ranked
-      .map((x) => s.notes.find((n) => n.id === x.id)!)
-      .filter(Boolean);
+    matches = hybridRank(useApp.getState().notes, question, ranked);
   }
   return matches.slice(0, 8).map((n) => ({
     id: n.id,
     title: n.title || "Untitled",
-    text: n.body.slice(0, 2000),
+    text: relevantExcerpt(n.body, question),
   }));
 }
 export async function cloud<R extends Parameters<typeof infer>[0]>(

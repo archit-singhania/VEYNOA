@@ -48,6 +48,8 @@ export default function Editor() {
   const notes = useApp((s) => s.notes);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [status, setStatus] = useState("Saved on this device");
+  const [focus, setFocus] = useState(false);
+  const [more, setMore] = useState(false);
   const t = useTheme();
   useEffect(() => {
     void repository
@@ -81,23 +83,11 @@ export default function Editor() {
   const suggestions = analysis?.suggestions ?? localSuggestions(note.body);
   const linked = related(notes, note.title + " " + note.body, id).slice(0, 3);
   const remove = () => {
-    const run = () =>
-      void useApp
-        .getState()
-        .remove(id)
-        .then(() => router.replace("/"))
-        .catch(useApp.getState().fail);
-    if (Platform.OS === "web") {
-      if (window.confirm("Delete this thought and its recordings?")) run();
-    } else
-      Alert.alert(
-        "Delete this thought?",
-        "Its recordings and derived data will also be removed.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: run },
-        ],
-      );
+    void useApp
+      .getState()
+      .remove(id)
+      .then(() => router.replace("/"))
+      .catch(useApp.getState().fail);
   };
   return (
     <Page
@@ -106,40 +96,63 @@ export default function Editor() {
       compact
       subtitle={status}
       action={
-        <Button
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace("/")
-          }
-        >
-          Done
-        </Button>
+        <Row>
+          <Button quiet icon="pen" onPress={() => setFocus(!focus)}>
+            {focus ? "Exit focus" : "Focus"}
+          </Button>
+          <Button
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/")
+            }
+          >
+            Done
+          </Button>
+        </Row>
       }
     >
-      <Row>
-        <Button
-          icon="pin"
-          onPress={() => void update({ pinned: !note.pinned })}
-        >
-          {note.pinned ? "Unpin" : "Pin"}
-        </Button>
-        <Button
-          icon="archive"
-          onPress={() => void update({ archived: !note.archived })}
-        >
-          {note.archived ? "Restore" : "Archive"}
-        </Button>
-        <Button
-          primary
-          icon="mic"
-          onPress={() => router.push(`/capture/${id}`)}
-        >
-          Speak
-        </Button>
-        <Button icon="spark" onPress={() => router.push(`/canvas/${id}`)}>
-          Bloom / Canvas
-        </Button>
-      </Row>
-      <Card style={{ padding: 26, gap: 12, borderRadius: 22 }}>
+      {!focus && (
+        <Row>
+          {more && (
+            <>
+              <Button
+                icon="pin"
+                onPress={() => void update({ pinned: !note.pinned })}
+              >
+                {note.pinned ? "Unpin" : "Pin"}
+              </Button>
+              <Button
+                icon="archive"
+                onPress={() => void update({ archived: !note.archived })}
+              >
+                {note.archived ? "Restore" : "Archive"}
+              </Button>
+            </>
+          )}
+          <Button
+            primary
+            icon="mic"
+            onPress={() => router.push(`/capture/${id}`)}
+          >
+            Speak
+          </Button>
+          <Button icon="spark" onPress={() => router.push(`/canvas/${id}`)}>
+            Explore idea
+          </Button>
+          <Button quiet onPress={() => setMore(!more)}>
+            {more ? "Fewer options" : "More options"}
+          </Button>
+        </Row>
+      )}
+      <Card
+        style={{
+          padding: focus ? 20 : 26,
+          gap: 12,
+          borderRadius: 22,
+          ...(focus
+            ? { borderColor: "transparent", backgroundColor: t.bg }
+            : {}),
+        }}
+      >
         <View
           style={{
             flexDirection: "row",
@@ -182,7 +195,7 @@ export default function Editor() {
           value={note.body}
           onChangeText={(body) => void update({ body })}
           style={{
-            minHeight: 310,
+            minHeight: focus ? 480 : 310,
             fontSize: 16,
             lineHeight: 30,
             borderWidth: 0,
@@ -195,67 +208,84 @@ export default function Editor() {
           {status}
         </Label>
       </Card>
-      <Row>
-        {(["note", "idea", "task", "journal", "project"] as Kind[]).map(
-          (kind) => (
-            <Button
-              key={kind}
-              primary={note.kind === kind}
-              onPress={() => void update({ kind })}
+      {!focus && (
+        <>
+          {more && (
+            <Row>
+              {(["note", "idea", "task", "journal", "project"] as Kind[]).map(
+                (kind) => (
+                  <Button
+                    key={kind}
+                    primary={note.kind === kind}
+                    onPress={() => void update({ kind })}
+                  >
+                    {kind}
+                  </Button>
+                ),
+              )}
+            </Row>
+          )}
+          {note.kind === "task" && (
+            <Button onPress={() => void update({ completed: !note.completed })}>
+              {note.completed ? "Reopen task" : "Mark complete"}
+            </Button>
+          )}
+          {suggestions.filter((s) => s.kind !== note.kind).length > 0 && (
+            <Card
+              style={{ backgroundColor: t.soft, borderColor: "transparent" }}
             >
-              {kind}
-            </Button>
-          ),
-        )}
-      </Row>
-      {note.kind === "task" && (
-        <Button onPress={() => void update({ completed: !note.completed })}>
-          {note.completed ? "Reopen task" : "Mark complete"}
-        </Button>
-      )}
-      {suggestions.filter((s) => s.kind !== note.kind).length > 0 && (
-        <Card style={{ backgroundColor: t.soft, borderColor: "transparent" }}>
-          <Label style={{ color: t.accent }}>
-            ✦ {analysis ? "Veynoa noticed something" : "A little perspective"}
-          </Label>
-          {suggestions
-            .filter((s) => s.kind !== note.kind)
-            .map((s, i) => (
-              <Button key={i} onPress={() => void update({ kind: s.kind })}>
-                {s.label}
-              </Button>
-            ))}
-        </Card>
-      )}
-      {analysis && (
-        <Label muted size={12}>
-          {analysis.topics.join(" · ")}
-        </Label>
-      )}
-      {linked.length > 0 && (
-        <Card>
-          <Label>Related thoughts · shared words</Label>
-          {linked.map(({ note: n }) => (
-            <Button key={n.id} onPress={() => router.push(`/notes/${n.id}`)}>
-              {n.title || "Untitled"}
-            </Button>
+              <Label style={{ color: t.accent }}>
+                ✦{" "}
+                {analysis ? "Veynoa noticed something" : "A little perspective"}
+              </Label>
+              {suggestions
+                .filter((s) => s.kind !== note.kind)
+                .map((s, i) => (
+                  <Button key={i} onPress={() => void update({ kind: s.kind })}>
+                    {s.label}
+                  </Button>
+                ))}
+            </Card>
+          )}
+          {analysis && (
+            <Label muted size={12}>
+              {analysis.topics.join(" · ")}
+            </Label>
+          )}
+          {linked.length > 0 && (
+            <Card>
+              <Label>Related thoughts · shared words</Label>
+              {linked.map(({ note: n }) => (
+                <Button
+                  key={n.id}
+                  onPress={() => router.push(`/notes/${n.id}`)}
+                >
+                  {n.title || "Untitled"}
+                </Button>
+              ))}
+            </Card>
+          )}
+          {recordings.map((r) => (
+            <Playback key={r.id} recording={r} />
           ))}
-        </Card>
+          {more && (
+            <Row>
+              <Button
+                disabled={settings.localOnly || !note.body.trim()}
+                onPress={() =>
+                  void useApp
+                    .getState()
+                    .analyze(id)
+                    .catch(useApp.getState().fail)
+                }
+              >
+                Analyze thought
+              </Button>
+              <Button onPress={remove}>Move to Trash</Button>
+            </Row>
+          )}
+        </>
       )}
-      {recordings.map((r) => (
-        <Playback key={r.id} recording={r} />
-      ))}
-      <Row>
-        <Button
-          disabled={settings.localOnly || !note.body.trim()}
-          onPress={() =>
-            void useApp.getState().analyze(id).catch(useApp.getState().fail)
-          }
-        >
-          Analyze thought
-        </Button>
-        <Button onPress={remove}>Delete</Button>
-      </Row>
     </Page>
   );
 }

@@ -1,7 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { migrations, ftsQuery, fullTextSchema } from "../apps/mobile/src/database/schema";
+import {
+  migrations,
+  ftsQuery,
+  fullTextSchema,
+} from "../apps/mobile/src/database/schema";
+test("upgrade preserves existing notes; trash keeps audio and can be restored", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys=ON");
+  db.exec(migrations[0]);
+  db.exec(
+    "INSERT INTO notes(id,title,body,createdAt,updatedAt) VALUES('n','Keep me','Content',1,1); INSERT INTO recordings(id,noteId,uri,createdAt,duration) VALUES('r','n','file',1,2)",
+  );
+  migrations.slice(1).forEach((m) => db.exec(m));
+  assert.equal(
+    db.prepare("SELECT title FROM notes WHERE deletedAt IS NULL").get()?.title,
+    "Keep me",
+  );
+  db.exec("UPDATE notes SET deletedAt=100 WHERE id='n'");
+  assert.equal(
+    db.prepare("SELECT * FROM notes WHERE deletedAt IS NULL").all().length,
+    0,
+  );
+  assert.equal(db.prepare("SELECT * FROM recordings").all().length, 1);
+  db.exec("UPDATE notes SET deletedAt=NULL WHERE id='n'");
+  assert.equal(
+    db.prepare("SELECT body FROM notes WHERE deletedAt IS NULL").get()?.body,
+    "Content",
+  );
+  db.close();
+});
 test("real SQLite migrations, FTS maintenance, revision guard and cascades", () => {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys=ON");

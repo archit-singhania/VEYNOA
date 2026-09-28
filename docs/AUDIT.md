@@ -1,5 +1,7 @@
 # VEYNOA implementation audit
 
+Latest follow-up: [Experience and reliability upgrade](EVOLUTION_AUDIT.md) records the new motion, quick capture, recovery, queue and gateway work, with 28 passing tests. The evidence below describes the original baseline.
+
 Date: 2026-09-28. Started from a repository containing only a README.
 
 **Outcome: runnable development baseline, with implemented surfaces across the roadmap. The full proposed V1 is not complete or production-ready.** Code existence, successful builds and device acceptance are distinguished below.

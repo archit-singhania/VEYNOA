@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { type Env } from "../services/ai-gateway/src/index";
+import worker, { type Env,withDeadline } from "../services/ai-gateway/src/index";
+test('provider deadline rejects stalled work',async()=>{await assert.rejects(()=>withDeadline(new Promise(()=>{}),5),/Provider timeout/);});
 const id = "11111111-1111-4111-8111-111111111111";
 const makeEnv = (output: unknown): Env => ({
   AI: { run: async () => output },
@@ -87,4 +88,43 @@ test("transcription uses the validated base64 audio payload", async () => {
   );
   assert.equal(result.status, 200);
   assert.deepEqual(await result.json(), { text: "A thought" });
+});
+test("health check reports readiness without inference", async () => {
+  const env = makeEnv({});
+  env.AI.run = async () => {
+    throw new Error("Should not infer");
+  };
+  const result = await worker.fetch(new Request("https://test/v1/health"), env);
+  assert.equal(result.status, 200);
+  assert.equal(((await result.json()) as { ready: boolean }).ready, true);
+  assert.ok(result.headers.get("X-Request-Id"));
+});
+test("limiter failures fail closed and rate limits include Retry-After", async () => {
+  const env = makeEnv({});
+  env.IP_LIMITER.limit = async () => {
+    throw new Error("Offline");
+  };
+  assert.equal(
+    (await worker.fetch(request("analyze", { text: "hello" }), env)).status,
+    503,
+  );
+  env.IP_LIMITER.limit = async () => ({ success: false });
+  const limited = await worker.fetch(
+    request("analyze", { text: "hello" }),
+    env,
+  );
+  assert.equal(limited.headers.get("Retry-After"), "60");
+});
+test("gateway rejects mixed embedding dimensions and wrong content type", async () => {
+  const bad = await worker.fetch(
+    request("embed", { texts: ["one", "two"] }),
+    makeEnv({ data: [[1, 2], [1]] }),
+  );
+  assert.equal(bad.status, 502);
+  const req = new Request("https://test/v1/analyze", {
+    method: "POST",
+    headers: { "X-Installation-Id": id },
+    body: "hello",
+  });
+  assert.equal((await worker.fetch(req, makeEnv({}))).status, 415);
 });

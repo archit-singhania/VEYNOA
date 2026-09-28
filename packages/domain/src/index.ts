@@ -47,6 +47,7 @@ export interface Settings {
   lastGreeting: string;
   theme: "system" | "light" | "dark";
   palette?: "grove" | "dusk" | "tide";
+  motionEffects?: boolean;
   installationId: string;
 }
 export const defaults: Omit<Settings, "installationId"> = {
@@ -56,6 +57,7 @@ export const defaults: Omit<Settings, "installationId"> = {
   lastGreeting: "",
   theme: "system",
   palette: "grove",
+  motionEffects: true,
 };
 export function dayKey(time = Date.now()) {
   const d = new Date(time);
