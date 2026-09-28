@@ -1,0 +1,23 @@
+{
+  "name": "veynoa-ai-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-01",
+  "ai": { "binding": "AI" },
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:8081",
+    "LLM_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  },
+  "ratelimits": [
+    {
+      "name": "INSTALL_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 },
+    },
+    {
+      "name": "IP_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 40, "period": 60 },
+    },
+  ],
+  "observability": { "enabled": false },
+}

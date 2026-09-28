@@ -1,0 +1,24 @@
+{
+  "name": "veynoa",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "start": "npm run start -w @veynoa/mobile",
+    "web": "npm run web -w @veynoa/mobile",
+    "typecheck": "tsc --noEmit -p apps/mobile && tsc --noEmit -p services/ai-gateway",
+    "test": "tsx --test tests/*.test.ts",
+    "gateway:dev": "npm run dev -w @veynoa/ai-gateway",
+    "gateway:deploy": "npm run deploy -w @veynoa/ai-gateway"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.2"
+  }
+}

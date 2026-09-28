@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Veynoa",
+    "slug": "veynoa",
+    "scheme": "veynoa",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "app.veynoa.mobile" },
+    "android": { "package": "app.veynoa.mobile" },
+    "web": { "bundler": "metro", "output": "single" },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Veynoa to record thoughts you choose to capture.",
+          "enableBackgroundPlayback": false
+        }
+      ]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}

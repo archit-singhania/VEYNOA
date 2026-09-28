@@ -1,0 +1,10 @@
+{
+  "name": "@veynoa/ai-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "zod": "^4.1.0",
+    "@veynoa/domain": "0.1.0"
+  }
+}

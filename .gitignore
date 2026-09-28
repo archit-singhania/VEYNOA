@@ -1,0 +1,10 @@
+node_modules/
+.expo/
+dist/
+.wrangler/
+.env
+.env.local
+.dev.vars
+*.tsbuildinfo
+coverage/
+artifacts/

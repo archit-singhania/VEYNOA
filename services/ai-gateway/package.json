@@ -1,0 +1,17 @@
+{
+  "name": "@veynoa/ai-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "dry-run": "wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "@veynoa/ai-contracts": "0.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0",
+    "@cloudflare/workers-types": "^4.20260101.0"
+  }
+}
