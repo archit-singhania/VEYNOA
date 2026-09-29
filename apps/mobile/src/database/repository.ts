@@ -11,6 +11,7 @@ import {
 } from "@veynoa/domain";
 import { analysis, type Analysis } from "@veynoa/ai-contracts";
 import { migrations, ftsQuery, fullTextSchema } from "./schema";
+import { clearAttachmentCache } from "../services/documents";
 
 export type Job = {
   id: string;
@@ -24,7 +25,7 @@ export type Job = {
 };
 let database: Promise<SQLite.SQLiteDatabase> | undefined;
 export const audioDirectory = () => new Directory(Paths.document, "recordings");
-async function db() {
+export async function db() {
   if (!database) database = SQLite.openDatabaseAsync("veynoa.db");
   return database;
 }
@@ -157,6 +158,7 @@ export const repository = {
       throw new Error(
         "Only thoughts in Recently deleted can be permanently removed.",
       );
+    await clearAttachmentCache(id);
     const recordings = await this.recordings(id);
     if (Platform.OS !== "web")
       for (const r of recordings) {
@@ -292,10 +294,23 @@ export const repository = {
         });
     });
   },
-  async applyTranscript(note: Note, recordingId: string) {
+  async applyTranscript(
+    note: Note,
+    recordingId: string,
+    segments: { start: number; end: number; text: string }[] = [],
+  ) {
     const d = await db();
     await d.withTransactionAsync(async () => {
       await this.save(note);
+      for (const segment of segments)
+        await d.runAsync(
+          "INSERT OR REPLACE INTO segments(id,recordingId,start,end,text) VALUES(?,?,?,?,?)",
+          `${recordingId}:${segment.start}`,
+          recordingId,
+          segment.start,
+          segment.end,
+          segment.text,
+        );
       await this.markTranscribed(recordingId);
     });
   },
@@ -404,6 +419,7 @@ export const repository = {
     };
   },
   async clear() {
+    await clearAttachmentCache();
     if (Platform.OS !== "web") {
       const directory = audioDirectory();
       if (directory.exists) directory.delete();
@@ -411,6 +427,10 @@ export const repository = {
     const d = await db();
     await d.withTransactionAsync(async () => {
       await d.runAsync("DELETE FROM notes");
+      await d.runAsync("DELETE FROM projects");
+      await d.runAsync("DELETE FROM templates");
+      await d.runAsync("DELETE FROM plans");
+      await d.runAsync("DELETE FROM vault");
       await d.runAsync("DELETE FROM settings");
     });
   },

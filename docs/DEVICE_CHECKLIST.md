@@ -2,6 +2,8 @@
 
 Run on physical Android and iPhone with an Expo Go version compatible with SDK 55. Record device, OS, commit and result. JavaScript exports do not prove these checks pass.
 
+For the 20-feature expansion, use a native preview/development build containing the new sharing, notification and authentication plugins; Expo Go is insufficient for the full checklist. Follow [the feature-by-feature guide](FEATURE_TESTING_GUIDE.md) for expected results.
+
 - Cold launch, no account flow, safe areas, keyboard handling and large font.
 - Create/edit in airplane mode; reopen and force-stop/relaunch; verify exact text.
 - Search punctuation/Unicode, pin, archive/restore and task completion.

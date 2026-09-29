@@ -4,6 +4,8 @@
 
 This is an implemented development baseline across phases 0–12, **not a production-complete release**. See [the phase audit](docs/AUDIT.md) for scope, evidence and remaining work.
 
+The latest expansion adds Workspace (inbox, collections, projects, planning, templates and scoped Ask), Note tools (actions, reminders, links, history, rewrite, attachments and meetings), Markdown formatting, timestamped playback, incoming sharing, Commands and an encrypted private vault. See the [20-feature audit](docs/FEATURE_EXPANSION_AUDIT.md) and [step-by-step manual testing guide](docs/FEATURE_TESTING_GUIDE.md).
+
 ## Run
 
 Requires Node 24 and npm.
@@ -14,6 +16,8 @@ npm start
 ```
 
 Scan the QR with an SDK-55-compatible Expo Go app. Notes work without a gateway; cloud AI starts disabled. On this Windows machine, use the working npm command shim if `npm.ps1` fails:
+
+Incoming system sharing and Face ID require a native development build containing the configured plugins. A successful Expo export does not validate those native integrations. Use the web preview for local workspace testing first.
 
 ```powershell
 & 'C:\Program Files\nodejs\npm.cmd' start

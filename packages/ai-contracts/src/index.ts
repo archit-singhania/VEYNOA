@@ -20,6 +20,10 @@ export const analysis = z.object({
 });
 export type Analysis = z.infer<typeof analysis>;
 export const requests = {
+  rewrite: z.object({
+    text,
+    mode: z.enum(["summarize", "clarify", "professional", "friendly"]),
+  }),
   analyze: z.object({ text }),
   bloom: z.object({ text }),
   transcribe: z.object({
@@ -41,8 +45,23 @@ export const requests = {
   connect: z.object({ sources: z.array(excerpt).min(2).max(8) }),
 };
 export const responses = {
+  rewrite: z.object({ text: z.string().min(1).max(16000) }),
   analyze: analysis,
-  transcribe: z.object({ text: z.string().max(32000) }),
+  transcribe: z.object({
+    text: z.string().max(32000),
+    segments: z
+      .array(
+        z
+          .object({
+            start: z.number().nonnegative(),
+            end: z.number().nonnegative(),
+            text: z.string().max(32000),
+          })
+          .refine((s) => s.end > s.start),
+      )
+      .max(2000)
+      .optional(),
+  }),
   embed: z.object({
     vectors: z
       .array(z.array(z.number().finite()).min(1).max(4096))

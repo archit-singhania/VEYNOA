@@ -8,6 +8,8 @@ import { cancelInference, infer } from "../services/ai";
 import { AIRequestError, retryPlan } from "@veynoa/domain/src/retry";
 import { useInterface } from "./interface";
 import { hybridRank, relevantExcerpt } from "@veynoa/domain/src/retrieval";
+import { workspace } from "../database/workspace";
+import { cancelReminder } from "../services/reminders";
 
 let writes = Promise.resolve();
 function serialize<T>(work: () => Promise<T>): Promise<T> {
@@ -127,6 +129,9 @@ export const useApp = create<State>((set, get) => ({
   },
   remove: async (id) =>
     serialize(async () => {
+      const meta = (await workspace.meta()).find((m) => m.noteId === id);
+      await cancelReminder(meta?.notificationId || null);
+      await workspace.reminder(id, null, null);
       await repository.remove(id);
       await get().refresh();
       useInterface.getState().notify({
@@ -244,7 +249,15 @@ export const useApp = create<State>((set, get) => ({
                   revision: current.revision + 1,
                   updatedAt: Date.now(),
                 };
-                await repository.applyTranscript(n, recording.id);
+                await repository.applyTranscript(
+                  n,
+                  recording.id,
+                  (result.segments || []).filter(
+                    (segment) =>
+                      segment.start < recording.duration &&
+                      segment.end <= recording.duration + 1,
+                  ),
+                );
                 set((s) => ({
                   notes: s.notes.map((x) => (x.id === n.id ? n : x)),
                 }));
@@ -277,6 +290,8 @@ export const useApp = create<State>((set, get) => ({
     cancelInference();
     set({ settings: { ...get().settings, localOnly: true } });
     await serialize(async () => {
+      for (const m of await workspace.meta())
+        await cancelReminder(m.notificationId);
       await repository.clear();
       const settings = { ...defaults, installationId: randomUUID() };
       await repository.setSettings(settings);

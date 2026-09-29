@@ -35,4 +35,6 @@ No fabricated activity, sample notes or fake AI output. Cloud-only actions retai
 
 ## Verification
 
+The 2026-09-29 Workspace, Note tools, Commands and Vault expansion follows these tokens but has not had a new browser visual pass: browser automation was unavailable. The visual review described below applies to the earlier core UI.
+
 Desktop and 390 px browser layouts visually reviewed. Verified appearance controls, note collection and persisted existing content. Native device layout, screen-reader navigation and large-font edge cases still require the physical-device checklist. Build/typecheck results are reported in the UI audit.

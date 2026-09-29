@@ -6,9 +6,17 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": true, "bundleIdentifier": "app.veynoa.mobile" },
-    "android": { "package": "app.veynoa.mobile" },
-    "web": { "bundler": "metro", "output": "single" },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.veynoa.mobile"
+    },
+    "android": {
+      "package": "app.veynoa.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "plugins": [
       "expo-router",
       "expo-sqlite",
@@ -18,8 +26,44 @@
           "microphonePermission": "Allow Veynoa to record thoughts you choose to capture.",
           "enableBackgroundPlayback": false
         }
+      ],
+      "expo-document-picker",
+      "expo-notifications",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Unlock your private Veynoa workspace."
+        }
+      ],
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebUrlWithMaxCount": 1,
+              "supportsImageWithMaxCount": 5,
+              "supportsFileWithMaxCount": 5
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "text/plain",
+              "image/*",
+              "application/pdf"
+            ],
+            "multipleShareMimeTypes": [
+              "image/*",
+              "application/pdf"
+            ]
+          }
+        }
       ]
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

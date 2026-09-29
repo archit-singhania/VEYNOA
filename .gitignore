@@ -8,3 +8,9 @@ dist/
 *.tsbuildinfo
 coverage/
 artifacts/
+.npm-cache/
+*.log
+*.log.*
+.cache/
+*.tmp
+apps/mobile/public/pdf.worker.min.mjs

@@ -10,6 +10,9 @@ import { useApp } from "../src/stores/app";
 import { Button, Label, Orb, useTheme } from "../src/components/ui";
 import { MotionProvider, useMotion } from "../src/components/motion";
 import { QuickCapture, ToastHost } from "../src/components/QuickCapture";
+import { AppLock } from "../src/components/AppLock";
+import { CommandPalette } from "../src/components/CommandPalette";
+import { NativeEvents } from "../src/components/NativeEvents";
 export { ErrorBoundary } from "expo-router";
 export default function Layout() {
   return (
@@ -49,61 +52,72 @@ function AppLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style={t.dark ? "light" : "dark"} />
-        {ready ? (
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: motion ? "slide_from_right" : "none",
-              contentStyle: { backgroundColor: t.bg },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="notes/[id]" />
-            <Stack.Screen
-              name="capture/[id]"
-              options={{ gestureEnabled: false }}
-            />
-            <Stack.Screen name="canvas/[id]" />
-            <Stack.Screen name="settings" />
-            <Stack.Screen name="trash" />
-          </Stack>
-        ) : (
-          <View
-            style={{ flex: 1, justifyContent: "center", backgroundColor: t.bg }}
-          >
-            <Orb />
-            <Label style={{ textAlign: "center" }}>
-              Opening your thoughts…
-            </Label>
-          </View>
-        )}
-        {busy > 0 && (
-          <View style={{ backgroundColor: t.soft, padding: 8 }}>
-            <Label size={12} style={{ textAlign: "center" }}>
-              ☁ AI processing · selected content only
-            </Label>
-          </View>
-        )}
-        {!!error && (
-          <View style={{ padding: 12, backgroundColor: t.soft, gap: 8 }}>
-            <Label>{error}</Label>
-            <Button
-              onPress={() =>
-                ready
-                  ? useApp.setState({ error: "" })
-                  : void useApp.getState().init()
-              }
+        <AppLock>
+          {ready ? (
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: motion ? "slide_from_right" : "none",
+                contentStyle: { backgroundColor: t.bg },
+              }}
             >
-              {ready ? "Dismiss" : "Retry opening"}
-            </Button>
-          </View>
-        )}
-        {ready && (
-          <>
-            <QuickCapture />
-            <ToastHost />
-          </>
-        )}
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="notes/[id]" />
+              <Stack.Screen
+                name="capture/[id]"
+                options={{ gestureEnabled: false }}
+              />
+              <Stack.Screen name="canvas/[id]" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="trash" />
+              <Stack.Screen name="workspace" />
+              <Stack.Screen name="vault" />
+              <Stack.Screen name="incoming" />
+            </Stack>
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                backgroundColor: t.bg,
+              }}
+            >
+              <Orb />
+              <Label style={{ textAlign: "center" }}>
+                Opening your thoughts…
+              </Label>
+            </View>
+          )}
+          {busy > 0 && (
+            <View style={{ backgroundColor: t.soft, padding: 8 }}>
+              <Label size={12} style={{ textAlign: "center" }}>
+                ☁ AI processing · selected content only
+              </Label>
+            </View>
+          )}
+          {!!error && (
+            <View style={{ padding: 12, backgroundColor: t.soft, gap: 8 }}>
+              <Label>{error}</Label>
+              <Button
+                onPress={() =>
+                  ready
+                    ? useApp.setState({ error: "" })
+                    : void useApp.getState().init()
+                }
+              >
+                {ready ? "Dismiss" : "Retry opening"}
+              </Button>
+            </View>
+          )}
+          {ready && (
+            <>
+              <QuickCapture />
+              <ToastHost />
+              <CommandPalette />
+              <NativeEvents />
+            </>
+          )}
+        </AppLock>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

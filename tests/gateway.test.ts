@@ -1,7 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { type Env,withDeadline } from "../services/ai-gateway/src/index";
-test('provider deadline rejects stalled work',async()=>{await assert.rejects(()=>withDeadline(new Promise(()=>{}),5),/Provider timeout/);});
+import worker, {
+  type Env,
+  withDeadline,
+} from "../services/ai-gateway/src/index";
+test("provider deadline rejects stalled work", async () => {
+  await assert.rejects(
+    () => withDeadline(new Promise(() => {}), 5),
+    /Provider timeout/,
+  );
+});
 const id = "11111111-1111-4111-8111-111111111111";
 const makeEnv = (output: unknown): Env => ({
   AI: { run: async () => output },
@@ -16,6 +24,33 @@ const request = (path: string, payload: unknown) =>
     headers: { "X-Installation-Id": id, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+test("rewrite route validates provider output and rejects invalid modes", async () => {
+  const payload = { text: "A thought to clarify.", mode: "clarify" };
+  const r = await worker.fetch(
+    request("rewrite", payload),
+    makeEnv({ response: JSON.stringify({ text: "A clearer thought." }) }),
+  );
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { text: "A clearer thought." });
+  assert.equal(
+    (
+      await worker.fetch(
+        request("rewrite", { ...payload, mode: "unsupported" }),
+        makeEnv({}),
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await worker.fetch(
+        request("rewrite", payload),
+        makeEnv({ response: '{"text":17}' }),
+      )
+    ).status,
+    502,
+  );
+});
 test("gateway validates requests before inference", async () => {
   let called = false;
   const env = makeEnv({});

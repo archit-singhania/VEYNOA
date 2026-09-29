@@ -166,6 +166,9 @@ export function Navigation({ state, navigation }: BottomTabBarProps) {
       {wide && (
         <>
           <View style={{ height: 22 }} />
+          <Button icon="grid" onPress={() => router.push("/workspace")}>
+            Workspace
+          </Button>
           <Button primary icon="plus" onPress={() => void add()}>
             New thought
           </Button>

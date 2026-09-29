@@ -48,6 +48,7 @@ export interface Settings {
   theme: "system" | "light" | "dark";
   palette?: "grove" | "dusk" | "tide";
   motionEffects?: boolean;
+  appLock?: boolean;
   installationId: string;
 }
 export const defaults: Omit<Settings, "installationId"> = {

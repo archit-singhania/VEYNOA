@@ -24,6 +24,7 @@ import {
   useTheme,
 } from "../../src/components/ui";
 import { Icon, type IconName } from "../../src/components/Icon";
+import { useCommands } from "../../src/components/CommandPalette";
 const collections = [
   "All thoughts",
   "Ideas",
@@ -85,6 +86,14 @@ export default function Notes() {
   };
   const header = (
     <View style={{ gap: 27 }}>
+      <Row>
+        <Button icon="grid" onPress={() => router.push("/workspace")}>
+          Workspace
+        </Button>
+        <Button icon="search" onPress={() => useCommands.getState().show()}>
+          Commands
+        </Button>
+      </Row>
       <View style={{ flexDirection: "row", gap: 20 }}>
         <View
           style={{

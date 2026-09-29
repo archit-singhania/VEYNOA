@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, Platform, View } from "react-native";
+import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useAudioPlayer } from "expo-audio";
 import {
   localSuggestions,
   related,
@@ -10,6 +9,10 @@ import {
 } from "@veynoa/domain";
 import { useApp } from "../../src/stores/app";
 import { repository } from "../../src/database/repository";
+import { NoteTools } from "../../src/components/NoteTools";
+import { Transcript } from "../../src/components/Transcript";
+import { FormattedText } from "../../src/components/FormattedText";
+import { replaceSelection } from "@veynoa/domain/src/workspace";
 import {
   Button,
   Card,
@@ -21,25 +24,6 @@ import {
   Eyebrow,
   serif,
 } from "../../src/components/ui";
-function Playback({ recording }: { recording: Recording }) {
-  const player = useAudioPlayer(recording.uri);
-  return (
-    <Row>
-      <Button
-        onPress={() => {
-          void player.seekTo(0);
-          player.play();
-        }}
-      >
-        Play recording
-      </Button>
-      <Button onPress={() => player.pause()}>Pause audio</Button>
-      <Label muted size={12}>
-        {Math.round(recording.duration)} seconds
-      </Label>
-    </Row>
-  );
-}
 export default function Editor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const note = useApp((s) => s.notes.find((n) => n.id === id));
@@ -50,6 +34,9 @@ export default function Editor() {
   const [status, setStatus] = useState("Saved on this device");
   const [focus, setFocus] = useState(false);
   const [more, setMore] = useState(false);
+  const [tools, setTools] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const t = useTheme();
   useEffect(() => {
     void repository
@@ -141,6 +128,9 @@ export default function Editor() {
           <Button quiet onPress={() => setMore(!more)}>
             {more ? "Fewer options" : "More options"}
           </Button>
+          <Button onPress={() => setTools(!tools)}>
+            {tools ? "Hide note tools" : "Note tools"}
+          </Button>
         </Row>
       )}
       <Card
@@ -187,22 +177,64 @@ export default function Editor() {
             paddingHorizontal: 0,
           }}
         />
-        <Field
-          accessibilityLabel="Note content"
-          placeholder="Start typing, or speak. There’s no wrong place to begin."
-          multiline
-          textAlignVertical="top"
-          value={note.body}
-          onChangeText={(body) => void update({ body })}
-          style={{
-            minHeight: focus ? 480 : 310,
-            fontSize: 16,
-            lineHeight: 30,
-            borderWidth: 0,
-            backgroundColor: "transparent",
-            paddingHorizontal: 0,
-          }}
-        />
+        {!focus && (
+          <Row>
+            <Button onPress={() => setPreview(!preview)}>
+              {preview ? "Edit text" : "Reading view"}
+            </Button>
+            {!preview &&
+              [
+                { name: "Heading", before: "## " },
+                { name: "Bold", before: "**", after: "**" },
+                { name: "Checklist", before: "- [ ] " },
+                { name: "Quote", before: "> " },
+                { name: "Highlight", before: "==", after: "==" },
+                { name: "Code", before: "\n```\n", after: "\n```\n" },
+              ].map((f) => (
+                <Button
+                  key={f.name}
+                  quiet
+                  onPress={() =>
+                    void update({
+                      body: replaceSelection(
+                        note.body,
+                        selection.start,
+                        selection.end,
+                        f.before,
+                        f.after,
+                      ),
+                    })
+                  }
+                >
+                  {f.name}
+                </Button>
+              ))}
+          </Row>
+        )}
+        {preview ? (
+          <FormattedText
+            body={note.body}
+            onChange={(body) => void update({ body })}
+          />
+        ) : (
+          <Field
+            accessibilityLabel="Note content"
+            placeholder="Start typing, or speak. There’s no wrong place to begin."
+            multiline
+            textAlignVertical="top"
+            value={note.body}
+            onChangeText={(body) => void update({ body })}
+            onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
+            style={{
+              minHeight: focus ? 480 : 310,
+              fontSize: 16,
+              lineHeight: 30,
+              borderWidth: 0,
+              backgroundColor: "transparent",
+              paddingHorizontal: 0,
+            }}
+          />
+        )}
         <View style={{ height: 1, backgroundColor: t.line }} />
         <Label muted size={11}>
           {status}
@@ -210,6 +242,7 @@ export default function Editor() {
       </Card>
       {!focus && (
         <>
+          {tools && <NoteTools note={note} />}
           {more && (
             <Row>
               {(["note", "idea", "task", "journal", "project"] as Kind[]).map(
@@ -266,7 +299,7 @@ export default function Editor() {
             </Card>
           )}
           {recordings.map((r) => (
-            <Playback key={r.id} recording={r} />
+            <Transcript key={r.id} recording={r} />
           ))}
           {more && (
             <Row>

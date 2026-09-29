@@ -5,6 +5,7 @@ const root = path.resolve("apps/mobile/dist");
 const types = {
   ".html": "text/html",
   ".js": "application/javascript",
+  ".mjs": "application/javascript",
   ".wasm": "application/wasm",
   ".css": "text/css",
   ".png": "image/png",

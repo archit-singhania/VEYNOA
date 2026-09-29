@@ -355,8 +355,9 @@ export default function Settings() {
       <Card>
         <Label size={22}>Take your thoughts with you</Label>
         <Label muted>
-          JSON includes note metadata, analysis and canvas positions. Audio
-          files are not embedded in these exports.
+          JSON includes notes, analysis and canvas positions. These are not full
+          backups: audio, attachments, workspace plans, version history and
+          private vault entries are excluded.
         </Label>
         <Row>
           <Button onPress={() => run(() => exportData("json"))}>
@@ -370,8 +371,10 @@ export default function Settings() {
       <Card>
         <Label size={22}>Erase this device</Label>
         <Label muted>
-          This permanently removes all notes, recordings, queued work, and
-          preferences. Export your notes first if you want to keep them.
+          This permanently removes all notes, recordings, attachments, projects,
+          tasks, plans, templates, history, private vault entries and
+          preferences on this device. Exports do not include all of this data.
+          This cannot be undone.
         </Label>
         <Field
           accessibilityLabel="Type DELETE to erase all data"
