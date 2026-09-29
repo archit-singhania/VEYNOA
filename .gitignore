@@ -14,3 +14,4 @@ artifacts/
 .cache/
 *.tmp
 apps/mobile/public/pdf.worker.min.mjs
+apps/mobile/public/ml/

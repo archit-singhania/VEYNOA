@@ -119,7 +119,14 @@ export default function Workspace() {
       title="Your workspace"
       eyebrow="MAKE SPACE FOR WHAT MATTERS"
       subtitle="A place to organize, plan and follow through."
-      action={<Button onPress={() => router.replace("/")}>My thoughts</Button>}
+      action={
+        <Row>
+          <Button onPress={() => router.push("/intelligence")}>
+            Intelligence
+          </Button>
+          <Button onPress={() => router.replace("/")}>My thoughts</Button>
+        </Row>
+      }
     >
       <Row>
         {views.map((v) => (

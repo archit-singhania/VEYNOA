@@ -4,7 +4,7 @@
 
 This is an implemented development baseline across phases 0–12, **not a production-complete release**. See [the phase audit](docs/AUDIT.md) for scope, evidence and remaining work.
 
-The latest expansion adds Workspace (inbox, collections, projects, planning, templates and scoped Ask), Note tools (actions, reminders, links, history, rewrite, attachments and meetings), Markdown formatting, timestamped playback, incoming sharing, Commands and an encrypted private vault. See the [20-feature audit](docs/FEATURE_EXPANSION_AUDIT.md) and [step-by-step manual testing guide](docs/FEATURE_TESTING_GUIDE.md).
+The workspace expansion adds inbox, collections, projects, planning, templates, scoped Ask, note actions, reminders, links, history, attachments, meetings, sharing, Commands and an encrypted vault. The new **Intelligence studio** adds a knowledge graph, historical memory, analytics, experimental web-local models, multimodal evidence search, decisions, resurfacing, learning cards and approved goal plans, plus an upgraded thinking canvas. See the [advanced implementation audit](docs/INTELLIGENCE_AUDIT.md), [20-feature audit](docs/FEATURE_EXPANSION_AUDIT.md), and [complete baseline + 30 manual testing guide](docs/FEATURE_TESTING_GUIDE.md).
 
 ## Run
 

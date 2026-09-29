@@ -1,6 +1,9 @@
 import { File, Paths, Directory } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import type { Attachment } from "../database/workspace";
+export async function documentPages(a: Attachment) {
+  return [{ page: 1, text: await extractDocument(a) }];
+}
 export async function readAttachment(uri: string) {
   const file = new File(uri);
   if (file.size > 10 * 1024 * 1024)

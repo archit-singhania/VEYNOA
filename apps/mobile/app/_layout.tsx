@@ -71,6 +71,7 @@ function AppLayout() {
               <Stack.Screen name="settings" />
               <Stack.Screen name="trash" />
               <Stack.Screen name="workspace" />
+              <Stack.Screen name="intelligence" />
               <Stack.Screen name="vault" />
               <Stack.Screen name="incoming" />
             </Stack>

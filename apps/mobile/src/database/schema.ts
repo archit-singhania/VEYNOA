@@ -40,6 +40,22 @@ CREATE TABLE vault(id TEXT PRIMARY KEY,payload TEXT NOT NULL);
 CREATE INDEX actions_note ON actions(noteId,done);
 CREATE INDEX versions_note ON versions(noteId,createdAt);
 `,
+  String.raw`
+CREATE TABLE memory_snapshots(id INTEGER PRIMARY KEY AUTOINCREMENT,noteId TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,revision INTEGER NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,at INTEGER NOT NULL);
+INSERT INTO memory_snapshots(noteId,revision,title,body,at) SELECT id,revision,title,body,CAST(strftime('%s','now') AS INTEGER)*1000 FROM notes WHERE deletedAt IS NULL;
+CREATE TRIGGER memory_created AFTER INSERT ON notes BEGIN INSERT INTO memory_snapshots(noteId,revision,title,body,at) VALUES(new.id,new.revision,new.title,new.body,new.createdAt); END;
+CREATE TRIGGER memory_changed AFTER UPDATE OF title,body ON notes WHEN old.title<>new.title OR old.body<>new.body BEGIN INSERT INTO memory_snapshots(noteId,revision,title,body,at) VALUES(new.id,new.revision,new.title,new.body,new.updatedAt); END;
+CREATE INDEX memory_at ON memory_snapshots(noteId,at);
+CREATE TABLE decisions(id TEXT PRIMARY KEY,noteId TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,question TEXT NOT NULL,choice TEXT NOT NULL,alternatives TEXT NOT NULL,assumptions TEXT NOT NULL,evidenceIds TEXT NOT NULL,outcome TEXT NOT NULL DEFAULT '',createdAt INTEGER NOT NULL,reviewedAt INTEGER);
+CREATE TABLE recommendation_feedback(noteId TEXT PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,rating INTEGER NOT NULL DEFAULT 0,snoozeUntil INTEGER NOT NULL DEFAULT 0,updatedAt INTEGER NOT NULL);
+CREATE TABLE study_cards(id TEXT PRIMARY KEY,noteId TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,question TEXT NOT NULL,answer TEXT NOT NULL,sourceRevision INTEGER NOT NULL,dueAt INTEGER NOT NULL,intervalDays REAL NOT NULL DEFAULT 0,ease REAL NOT NULL DEFAULT 2.5,reviews INTEGER NOT NULL DEFAULT 0,lapses INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE study_reviews(id TEXT PRIMARY KEY,cardId TEXT NOT NULL REFERENCES study_cards(id) ON DELETE CASCADE,grade INTEGER NOT NULL,at INTEGER NOT NULL);
+CREATE TABLE goals(id TEXT PRIMARY KEY,title TEXT NOT NULL,sourceIds TEXT NOT NULL,createdAt INTEGER NOT NULL);
+CREATE TABLE goal_steps(id TEXT PRIMARY KEY,goalId TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,text TEXT NOT NULL,noteId TEXT REFERENCES notes(id) ON DELETE SET NULL,dependencies TEXT NOT NULL DEFAULT '[]',state TEXT NOT NULL DEFAULT 'proposed',actionId TEXT REFERENCES actions(id) ON DELETE SET NULL);
+CREATE TABLE goal_events(id TEXT PRIMARY KEY,goalId TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,stepId TEXT NOT NULL,action TEXT NOT NULL,at INTEGER NOT NULL);
+CREATE TABLE evidence_chunks(id TEXT PRIMARY KEY,noteId TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,attachmentId TEXT REFERENCES attachments(id) ON DELETE CASCADE,recordingId TEXT REFERENCES recordings(id) ON DELETE CASCADE,kind TEXT NOT NULL,locator TEXT NOT NULL,text TEXT NOT NULL,vector TEXT,model TEXT,sourceRevision INTEGER,createdAt INTEGER NOT NULL);
+CREATE INDEX evidence_note ON evidence_chunks(noteId,kind);
+`,
 ];
 export function ftsQuery(query: string) {
   return (query.match(/[\p{L}\p{N}]+/gu) ?? [])

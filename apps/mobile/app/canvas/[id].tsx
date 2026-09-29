@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { PanResponder, ScrollView, View } from "react-native";
+import { AppState, PanResponder, ScrollView, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback } from "react";
+import { intelligence } from "../../src/database/intelligence";
+import {
+  startLocalDictation,
+  localSupported,
+  loadedModels,
+} from "../../src/services/localModels";
 import { router, useLocalSearchParams } from "expo-router";
 import Svg, { Line } from "react-native-svg";
 import { randomUUID } from "expo-crypto";
@@ -19,11 +27,17 @@ function Node({
   node,
   move,
   expand,
+  select,
+  selected,
 }: {
   node: CanvasNode;
   move: (n: CanvasNode) => void;
   expand: (n: CanvasNode) => void;
+  select: (n: CanvasNode) => void;
+  selected: boolean;
 }) {
+  const latest = useRef(node);
+  latest.current = node;
   const position = useRef({ x: node.x, y: node.y });
   const [p, setP] = useState(position.current);
   const t = useTheme();
@@ -42,7 +56,7 @@ function Node({
           x: Math.max(0, Math.min(650, position.current.x + g.dx)),
           y: Math.max(0, Math.min(800, position.current.y + g.dy)),
         };
-        move({ ...node, ...position.current });
+        move({ ...latest.current, ...position.current });
       },
     }),
   ).current;
@@ -57,13 +71,16 @@ function Node({
         padding: 12,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: t.line,
+        borderColor: selected ? t.accent : t.line,
         backgroundColor: t.card,
         gap: 8,
       }}
     >
       <Label size={13}>{node.text}</Label>
       <Button onPress={() => expand(node)}>Bloom</Button>
+      <Button onPress={() => select(node)}>
+        {selected ? "Selected" : "Select / edit"}
+      </Button>
     </View>
   );
 }
@@ -74,6 +91,29 @@ export default function Canvas() {
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string[]>([]);
+  const [listening, setListening] = useState(false);
+  const stop = useRef<(() => void) | null>(null);
+  const voiceGeneration = useRef(0);
+  useFocusEffect(
+    useCallback(() => {
+      const end = () => {
+        voiceGeneration.current++;
+        stop.current?.();
+        stop.current = null;
+        setListening(false);
+      };
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state !== "active") end();
+      });
+      return () => {
+        end();
+        subscription.remove();
+      };
+    }, []),
+  );
   const t = useTheme();
   useEffect(() => {
     void repository.canvas(id).then(setNodes).catch(useApp.getState().fail);
@@ -89,6 +129,17 @@ export default function Canvas() {
       parentId: null,
     };
     try {
+      if (editing) {
+        const old = nodes.find((n) => n.id === editing);
+        if (old) {
+          const next = { ...old, text: text.trim() };
+          await repository.saveNode(next);
+          setNodes((a) => a.map((n) => (n.id === editing ? next : n)));
+        }
+        setEditing(null);
+        setText("");
+        return;
+      }
       await repository.saveNode(n);
       setNodes((s) => [...s, n]);
       setText("");
@@ -112,16 +163,8 @@ export default function Canvas() {
     setBusy(true);
     try {
       const result = await cloud("bloom", { text: seed });
-      const next = result.branches.map((b, i) => ({
-        id: randomUUID(),
-        noteId: id,
-        text: b.title + "\n" + b.detail,
-        x: 20 + (i % 3) * 210,
-        y: Math.min(750, (parent?.y ?? -130) + 180 + Math.floor(i / 3) * 220),
-        parentId: parent?.id ?? null,
-      }));
-      for (const n of next) await repository.saveNode(n);
-      setNodes((s) => [...s, ...next]);
+      setPreview(result.branches.map((b) => b.title + "\n" + b.detail));
+      if (parent) setSelected([parent.id]);
     } catch (e) {
       useApp.getState().fail(e);
     } finally {
@@ -155,7 +198,7 @@ export default function Canvas() {
       />
       <Row>
         <Button onPress={() => void add()} disabled={!text.trim()}>
-          Add thought
+          {editing ? "Save edited thought" : "Add thought"}
         </Button>
         <Button
           primary
@@ -165,6 +208,156 @@ export default function Canvas() {
           {busy ? "Blooming…" : "Bloom this thought"}
         </Button>
       </Row>
+      <Card>
+        <Label>Conversational thinking</Label>
+        <Label muted>
+          Local dictation processes 8-second windows with a pause while each
+          window is transcribed. Review the draft before adding it. Load the
+          English speech model in Intelligence first. This is segmented
+          dictation, not uninterrupted real-time streaming.
+        </Label>
+        <Row>
+          <Button
+            disabled={!localSupported || !loadedModels.has("speech") || busy}
+            onPress={() => {
+              if (listening) {
+                stop.current?.();
+                stop.current = null;
+                setListening(false);
+                return;
+              }
+              setBusy(true);
+              const generation = ++voiceGeneration.current;
+              void startLocalDictation(
+                (chunk) => setText((old) => old + (old ? "\n" : "") + chunk),
+                (e) => {
+                  setListening(false);
+                  useApp.getState().fail(e);
+                },
+              )
+                .then((end) => {
+                  if (generation !== voiceGeneration.current) {
+                    end();
+                    return;
+                  }
+                  stop.current = end;
+                  setListening(true);
+                })
+                .catch(useApp.getState().fail)
+                .finally(() => setBusy(false));
+            }}
+          >
+            {listening ? "Stop dictation" : "Dictate locally"}
+          </Button>
+          <Button onPress={() => router.push("/intelligence")}>
+            Open Intelligence
+          </Button>
+          <Button
+            onPress={() => {
+              setSelected([]);
+              setEditing(null);
+              setText("");
+            }}
+          >
+            Clear selection
+          </Button>
+        </Row>
+        <Label>{selected.length} selected branches</Label>
+        <Row>
+          {["Challenge assumptions", "Explore alternatives"].map((intent) => (
+            <Button
+              key={intent}
+              disabled={busy || localOnly || !selected.length}
+              onPress={() => {
+                setBusy(true);
+                void cloud("bloom", {
+                  text: (
+                    intent +
+                    ". Clearly label these as suggestions, not facts.\n" +
+                    nodes
+                      .filter((n) => selected.includes(n.id))
+                      .map((n) => n.text)
+                      .join("\n")
+                  ).slice(0, 16000),
+                })
+                  .then((r) =>
+                    setPreview(
+                      r.branches.map((b) => b.title + "\n" + b.detail),
+                    ),
+                  )
+                  .catch(useApp.getState().fail)
+                  .finally(() => setBusy(false));
+              }}
+            >
+              {intent}
+            </Button>
+          ))}
+          <Button
+            disabled={busy || !selected.length}
+            onPress={() => {
+              setBusy(true);
+              void intelligence
+                .propose(
+                  note?.title || "Canvas plan",
+                  [id],
+                  nodes
+                    .filter((n) => selected.includes(n.id))
+                    .map((n) => n.text),
+                  true,
+                )
+                .then(() => router.push("/intelligence"))
+                .catch(useApp.getState().fail)
+                .finally(() => setBusy(false));
+            }}
+          >
+            Propose plan from selected
+          </Button>
+        </Row>
+      </Card>
+      {!!preview.length && (
+        <Card>
+          <Label>Review suggested branches</Label>
+          {preview.map((line, i) => (
+            <Field
+              key={i}
+              accessibilityLabel={"Suggested branch " + (i + 1)}
+              multiline
+              value={line}
+              onChangeText={(value) =>
+                setPreview((a) => a.map((x, j) => (i === j ? value : x)))
+              }
+            />
+          ))}
+          <Row>
+            <Button
+              disabled={busy}
+              onPress={() => {
+                setBusy(true);
+                void (async () => {
+                  const next = preview
+                    .filter((x) => x.trim())
+                    .map((text, i) => ({
+                      id: randomUUID(),
+                      noteId: id,
+                      text,
+                      x: 20 + ((nodes.length + i) % 3) * 210,
+                      y: 30 + Math.floor((nodes.length + i) / 3) * 220,
+                      parentId: selected[0] || null,
+                    }));
+                  await repository.saveNodes(next);
+                  setNodes((a) => [...a, ...next]);
+                  setPreview([]);
+                })()
+                  .catch(useApp.getState().fail)
+                  .finally(() => setBusy(false));
+              }}
+            >
+              Accept branches
+            </Button>
+            <Button onPress={() => setPreview([])}>Discard suggestions</Button>
+          </Row>
+        </Card>
+      )}
       <Label muted size={12}>
         Use a wide screen for the full board. Positions are saved on this
         device.
@@ -172,13 +365,22 @@ export default function Canvas() {
       <ScrollView
         horizontal
         style={{
-          height: 1000,
+          height: Math.max(1000, Math.ceil(nodes.length / 3) * 220 + 250),
           backgroundColor: t.soft,
           borderRadius: 20,
         }}
       >
-        <View style={{ width: 840, height: 1000 }}>
-          <Svg width={840} height={1000} style={{ position: "absolute" }}>
+        <View
+          style={{
+            width: 840,
+            height: Math.max(1000, Math.ceil(nodes.length / 3) * 220 + 250),
+          }}
+        >
+          <Svg
+            width={840}
+            height={Math.max(1000, Math.ceil(nodes.length / 3) * 220 + 250)}
+            style={{ position: "absolute" }}
+          >
             {nodes
               .filter((n) => n.parentId)
               .map((n) => {
@@ -202,6 +404,16 @@ export default function Canvas() {
               node={n}
               move={move}
               expand={(n) => void bloom(n)}
+              selected={selected.includes(n.id)}
+              select={(n) => {
+                setSelected((a) =>
+                  a.includes(n.id)
+                    ? a.filter((id) => id !== n.id)
+                    : [...a, n.id],
+                );
+                setEditing(n.id);
+                setText(n.text);
+              }}
             />
           ))}
         </View>

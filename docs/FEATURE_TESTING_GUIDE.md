@@ -1,17 +1,93 @@
-# Veynoa: 20-feature manual testing guide
+# Veynoa: complete manual testing guide — baseline + 20 + 10
 
 Updated 2026-09-29. These are acceptance steps and expected results, not a claim that every step has been performed. Physical-device audio, live gateway validation and full backup/import remain deferred as requested. Nothing was deployed.
 
 ## Start here
 
 1. Use Node 24. In the repository root, run `npm ci` if dependencies are not installed. On this Windows machine, use `& 'C:\Program Files\nodejs\npm.cmd'` in place of `npm` if PowerShell's npm shim fails.
-2. Run `npm run export -w @veynoa/mobile`, then `node scripts/preview.mjs`. Open http://127.0.0.1:8081. The export command prepares the local PDF worker automatically. Keep the preview terminal running.
+2. Run `npm run export -w @veynoa/mobile`, then `node scripts/preview.mjs`. Open http://127.0.0.1:8081. The export command prepares the PDF, local inference, and OCR workers automatically; it does not download model weights. Keep the preview terminal running. If port 8081 is already serving this checkout, reuse that server after exporting.
 3. Leave local-only mode enabled initially. Most of these features work without an account or gateway.
 4. Create two synthetic notes: **QA Launch** with body `Launch planning: research customer interviews and prepare a prototype.` and **QA Research** with body `Customer interviews will guide our launch prototype.` Use these names only once so title-based links are unambiguous.
 5. Wait for “Saved on this device” after editing. Reload once and verify both notes remain.
-6. The two main entry points are **Workspace** on the home screen and **Note tools** inside any note. Exit Focus first if you cannot see the editor tools. Web shortcuts also open Commands.
+6. The main entry points are **Workspace** on home, **Note tools** inside a note, and **Workspace → Intelligence** for advanced features. Commands also includes Intelligence studio. Exit Focus if editor tools are hidden. The thinking canvas is opened from a note.
 
 Use harmless test content, including for the vault. Do not use Delete all local data as routine cleanup: it erases the vault and workspace data, and existing exports are not full backups.
+
+## Testing order and result log
+
+Run **B1–B8 below → features 1–20 → features 21–30**. Begin with local-only enabled. Test one scenario, leave/reopen its screen, reload, then check persistence before continuing. Use a separate browser profile for destructive reset checks. Record each result as `PASS / FAIL / NOT RUN`, with date, OS/browser or app build, steps and visible error. A build passing is not a manual test passing.
+
+The advanced features are first implementations with boundaries called out below. Local model execution, native audio and live gateway output have not been verified in this environment. Do not mark those passes based on disabled controls or successful bundle export.
+
+## B1. Original notebook, autosave and kinds
+
+1. Create QA Launch and QA Research as above. Edit title/body, wait for Saved on this device, leave and reopen, then reload.
+2. Change QA Launch to Idea; use the corresponding kind filter. Pin it and check ordering. Unpin and confirm it remains.
+3. Create a Task note, complete/reopen the whole task, and distinguish that status from action items in feature 3.
+4. Archive a QA note. Check that it disappears from active search/collections. Restore it from the archive controls.
+
+**Expect:** saved content survives reload; classification and pinning do not duplicate or erase the note. Save errors are visible. A whole-note task, a Markdown checklist and a workspace action are separate records.
+
+## B2. Quick capture, drafts and Focus
+
+1. Open quick capture; try Blank, Idea, Journal and Task. Type a draft and dismiss it without saving.
+2. Reload, reopen capture, confirm the draft, then save once.
+3. Open the saved note, enable Focus, edit it, leave Focus and verify the tools return.
+
+**Expect:** unfinished draft text survives; saving clears the draft and opens one saved note. Focus changes editor chrome, not note content. Voice handoff on native opens that note's recording screen.
+
+## B3. Trash, Undo and recovery
+
+1. Delete a synthetic note; use Undo immediately and verify the text is restored.
+2. Delete again; open Recently deleted in Settings, restore it, then reload.
+3. Only on a disposable QA note, delete then permanently remove it. Confirm it cannot be restored.
+
+**Expect:** Trash retains source data until permanent removal; active search/AI omit it. A restored note does not automatically restart canceled AI jobs. Native recording recovery needs the device pass.
+
+## B4. Search, Garden, Timeline and original canvas
+
+1. Search `prototype`, including a word well into a long QA note; open a matching result.
+2. Open Memory garden and its topic/kind filters, then a note. Empty groupings are normal before enough content exists.
+3. Open Timeline, select the QA notes' date and open a note.
+4. Open a note's canvas, add two thoughts, drag them, leave and reopen.
+
+**Expect:** drilldowns open the source notes; canvas text/positions persist. The original canvas remains a finite board. Advanced canvas checks are in feature 28.
+
+## B5. Themes, motion, accessibility and greeting
+
+1. In Settings, try Grove, Dusk and Tide with light, dark and system appearance; reload.
+2. Disable Gentle motion, then test OS reduced motion; open/close capture and navigate screens.
+3. At phone width, use long titles, large text and keyboard navigation. On native, run VoiceOver/TalkBack checks later.
+4. Set greeting to Never, then Daily and Always; check startup speech on a device with speech enabled.
+
+**Expect:** preferences persist; text/buttons remain usable; reduced motion suppresses decorative effects. Speech/audio behavior is a device acceptance check, not validated by web appearance.
+
+## B6. Original native recording and segmented dictation — deferred device pass
+
+1. Open a QA note → Record. Deny microphone permission, check the explanation, then grant permission in OS settings and retry.
+2. Record a short clip, pause/resume, save and play it. Seek, leave/reopen and restart the app.
+3. Try leaving/backgrounding during recording; follow the visible stop/save/discard controls. Check an incoming-call interruption separately.
+4. With the gateway configured later, transcribe the saved clip and try experimental segmented dictation.
+
+**Expect:** retained recordings belong to the note and survive restart. Denial/interruption should not silently pretend a recording succeeded. Transcription is appended once with durable queue state. Segmented dictation may contain gaps; it is not seamless live speech recognition. Also run `docs/DEVICE_CHECKLIST.md`.
+
+## B7. Original cloud analysis, Ask, Bloom, DayStory and queue — deferred gateway pass
+
+1. Configure/test your HTTPS gateway using the setup instructions at the end. Use synthetic notes and explicitly turn local-only off.
+2. Edit a note; inspect analysis suggestions. Accept a suggested kind and confirm the original writing is retained.
+3. Ask a question over notes; open each cited source. Try an unsupported question: output should not invent source IDs.
+4. Generate Bloom branches; review before accepting them. In Timeline generate a DayStory from sufficient content and explicitly save it as a journal note.
+5. Temporarily use an unreachable gateway; inspect the pending/failed queue and retry controls. Restore the URL, retry, then turn local-only back on.
+
+**Expect:** cloud actions visibly process or fail; disabled privacy mode blocks cloud inference. Stale analyses are not applied after content changes. DayStory is manually generated, not a nightly automation. Retries occur while the app is active and do not guarantee background processing.
+
+## B8. Export and destructive reset — disposable profile only
+
+1. Export JSON and Markdown; open both and confirm ordinary note text is readable. Check that vault and trashed notes are excluded.
+2. Do not treat these as backups: attachments, all workspace/intelligence records and restorable audio are not fully exported/imported.
+3. In a disposable profile only, use Delete all local data. Reopen and verify ordinary notes, vault, projects, plans, decisions, cards and goals are gone.
+
+**Expect:** reset removes application records. Downloaded model caches are browser-managed and are not cleared by database reset; Stop/unload removes the active worker, while browser site-data controls remove cached downloads.
 
 ## 1. Unified inbox
 
@@ -199,6 +275,110 @@ Use harmless test content, including for the vault. Do not use Delete all local 
 
 **Expect:** private titles/bodies are encrypted together using AES-256-GCM and a PBKDF2-derived key; passphrases are not persisted. Private entries are separate from ordinary notes, AI, search and exports. The key is cleared on leaving/backgrounding the vault; a stale second session cannot silently overwrite a newer encrypted payload. Device app lock gates the interface and permits OS passcode fallback; it does not encrypt ordinary notes. Biometric app lock is native-only. Face ID requires an appropriate development build. Private attachments, passphrase changes, recovery and vault backups are not implemented. Complete security/device review before trusting this new feature with important secrets.
 
+## 21. Living knowledge graph
+
+1. Give QA Launch and QA Research the `work` tag. Put them in QA Release. Add a wiki/manual link using feature 8.
+2. Open Workspace → Intelligence → Graph. Select All projects, then QA Release. Try Created since with a valid date and an invalid date.
+3. Select a plotted node or its matching button; open its source note. Use Zoom +/− and horizontal scrolling.
+4. Later, obtain cloud analysis for a note containing a named entity. Return to Graph; inspect the dashed entity edges.
+
+**Expect:** recorded tags, projects and links use solid edges; AI-extracted entities use dashed edges and are explicitly marked for verification. Source buttons open actual notes. Clusters are connected components, not a learned community classifier. Up to 50 active notes are graphed; the date filter concerns note creation, not a historical graph reconstruction. Editing analyzed text removes stale entity analysis until regenerated.
+
+## 22. Time-aware memory
+
+1. Edit QA Launch after installing this version; add a distinctive line, wait for save, then change/remove it and save again.
+2. Open Intelligence → Memory. Choose today's date and search a literal word in the observed text. Try a date before installing this upgrade.
+3. To exercise a different-day comparison, create/edit a QA note on one day and change it the next; choose the first day's cutoff. Compare the added/removed lines with the current note.
+4. Later with cloud enabled, enter a historical question and choose Ask cloud AI about first 8 snapshots; inspect its sources.
+
+**Expect:** the latest observed snapshot up to the end of the chosen local date is shown. Later text must not appear as earlier knowledge. Existing notes get their first snapshot at upgrade time; earlier history is unknown. Snapshots currently capture title/body only, and comparisons count distinct changed lines. Cloud historical questions use the first eight available snapshots and whole-note source links; the links open current notes, while the snapshot text stays visible in Memory.
+
+## 23. Visual intelligence dashboard
+
+1. Create several QA notes today and mark one Idea. Add an action to that idea.
+2. Open Intelligence → Dashboard. Select today's activity bar/date, the ideas-with-actions metric, each action priority, and a collection tag.
+3. Open each drilldown source and compare the figures with your notebook.
+
+**Expect:** the 14-day chart counts note creation dates, priority controls count open actions, and the idea percentage counts idea notes with any action (including completed ones). Drilldowns open the counted notes; multiple actions on a note need not produce multiple note buttons. These are descriptive counts, not predictions or a productivity score. Empty datasets show zero, not fabricated sample data.
+
+## 24. Private on-device models — experimental web acceptance
+
+1. Use the web app with local-only still enabled. Open Intelligence → Local AI. No weights should download merely from opening the tab.
+2. Choose Load / download Semantic search & classification. Allow the download to finish; expect a ready indicator or a visible actionable error. Downloads may be large. Repeat separately for Summarization and English speech only when needed.
+3. Select QA Launch; choose Suggest category locally. Enter a semantically related query and Search locally.
+4. Load Summarization, select a source and Summarize locally. Review/edit the output and save it as a new note. Confirm the source remains and is linked to the summary.
+5. Load English speech; choose Transcribe audio file locally with an English clip under three minutes/30 MB. Review and save the output. The uploaded file itself is not retained as a recording by this flow.
+6. While the loaded worker remains active, disable network access and repeat an inference. Re-enable the network afterward. Reload offline separately to test cache behavior; successful warm-worker inference alone does not prove cached restart works.
+7. Choose Stop / unload models during processing and verify it stops or reports cancellation. On native, check the unsupported-runtime message and disabled model controls.
+
+**Expect:** model files download from model hosts, but selected note/audio content stays in the browser for inference. There is no automatic cloud fallback. Similarity scores are not confidence probabilities; category suggestions do not automatically change note kinds. Summary input is limited to 3,000 characters, semantic search to the first 50 active notes. Small models can give weak or incorrect output. Browser storage eviction may require another download. Actual model execution/performance and offline reload are NOT RUN in this environment.
+
+## 25. Multimodal evidence search
+
+1. Attach a two-page text PDF, a text file, and an image with distinctive English writing to QA Research using feature 11.
+2. Open Intelligence → Evidence, select QA Research, and Load source attachments. Index the PDF and text file on web.
+3. In Local AI load English image OCR and/or Image/text embeddings. Return to Evidence, reload attachments, and Index file for the image.
+4. Search a word on PDF page 2, then a word in the image. With vision loaded, describe an image rather than quoting its text.
+5. Inspect each hit's page/region locator, source note and original attachment. Reindex the same file and verify matching locators are replaced rather than simply duplicated.
+6. Later, create a native recording with real timestamped segments (feature 13), search a word in a segment, then Play from timestamp and Pause on that device.
+
+**Expect:** PDF hits identify a page; OCR hits identify the full image or line-region coordinates; image-vector hits identify the image. The original attachment opens/downloads for verification. Region coordinates are currently displayed as metadata, not a highlighted crop, and PDF opening does not automatically scroll to the cited page. Text/audio hits use keywords; image hits use CLIP similarity. No synthetic audio timestamps are invented. Scanned PDFs need a separate OCR workflow; native PDF/model inference is not implemented. Audio URIs remain device-local.
+
+## 26. Decision intelligence
+
+1. Open Intelligence → Decisions. Select QA Launch first and QA Research as supporting evidence.
+2. Enter a decision question, choice, alternative and assumptions, then Record decision. Reload.
+3. Enter an observed outcome, Save outcome, leave/reopen and confirm it persists.
+4. Later, enable cloud and Review evidence with cloud AI. Compare its suggestions to the actual sources.
+
+**Expect:** choice, alternatives, assumptions, supporting notes and outcome remain separate. Saving does not rewrite the source note. The optional AI review identifies possible issues; it cannot prove an assumption false or guarantee causality. Review text is transient, while the recorded decision/outcome persists. An unavailable supporting note is labeled unavailable.
+
+## 27. Personalized resurfacing
+
+1. Open Intelligence → Resurface and enter `launch prototype`; select QA Release.
+2. Inspect the reason beneath each suggestion. Choose Useful on one note and Less useful on another; reload.
+3. Snooze a note for seven days and verify it disappears. Choose Reset feedback and snoozes and confirm it can return.
+
+**Expect:** context words, project, due reminders, note age and feedback adjust the order; matching tags share a bounded feedback preference. Archived notes are excluded. Each result explains ranking signals. This is transparent local adaptive scoring, not a trained personal ML model or a push-notification service.
+
+## 28. Conversational thinking canvas
+
+1. Open QA Launch's canvas. Add three thoughts; choose Select / edit on one, change its text and Save edited thought. Drag, leave and reopen.
+2. Select two branches. Choose Propose plan from selected, then open the Goals tab in Intelligence. Verify it is only a proposal and has not created actions.
+3. Later with cloud enabled, choose Challenge assumptions or Explore alternatives. Edit the suggested branches; Discard once, then regenerate and Accept branches. Check that only accepted suggestions are saved.
+4. For local voice on web, first load English speech in Local AI, return to the canvas, choose Dictate locally and grant microphone permission. Speak an eight-second phrase, wait for transcription, inspect the draft, stop, and explicitly add/save the thought.
+5. Leave the canvas or background the app while dictating; verify the microphone stops.
+
+**Expect:** editing/selection and saved positions survive navigation; generated branches require review. Plans carry the originating note as a source. Local dictation uses eight-second recording windows with processing pauses and drops an unfinished window when stopped; it is not continuous real-time streaming or automatic live mind mapping. Native local-model dictation is unavailable. The board is finite; use short sessions and review transcription errors.
+
+## 29. Learning and recall
+
+1. Open Intelligence → Learning, select QA Research and Draft from source. Edit the question/answer to create a useful recall prompt, then Save card.
+2. Try answering mentally before Reveal answer. Choose Again, then inspect Scheduled cards.
+3. Create another card and choose Good on its first review. Reload and compare due times.
+4. Edit the source note, return when a card is due and inspect its changed-source warning. Delete a disposable due card.
+
+**Expect:** Again schedules approximately ten minutes; first Good schedules one day; first Easy schedules four days. Later intervals depend on prior reviews and self-ratings. Review/lapse counts persist. Return to the tab after the due time to refresh the due list. Source edits do not silently rewrite a learned answer; stale cards should be checked and replaced. The ≥21-day metric reports schedule intervals, not verified mastery. This release has manual/drafted flashcards and self-graded recall, not automatic quiz generation or a trained mastery model.
+
+## 30. Goal execution assistant
+
+1. Open Intelligence → Goals; select QA Launch, name a goal, and enter three steps on separate lines. Keep Sequential dependencies on and Save proposal.
+2. Inspect Today: no actions should have been created yet. Return and approve step 2, then try Complete step: it should be disabled until step 1 is done.
+3. Approve/complete step 1; now complete step 2. Inspect Today and the audit trail.
+4. Approve step 3 and Revert approval; its generated unfinished action should disappear and the proposal should return.
+5. Approve it again, edit the generated action's text or date in note tools, then try Revert approval. Expect a refusal that preserves your edited action.
+6. Create an independent-steps proposal and compare completion behavior. Later test Suggest steps with cloud AI, edit the draft, then explicitly save/approve it.
+
+**Expect:** approval creates one action on the first selected source note. Every proposal/approval/completion/reversal is auditable. Dependencies are sequential or independent in this UI; arbitrary dependency editing is not exposed. Complete dependencies from Goals: changing action completion directly in Today does not synchronize goal-step state. Missing/archived source notes block step changes until restored. No email, calendar, external task service or background agent is executed. Reversal applies only to an unchanged unfinished action.
+
+## Advanced privacy and persistence regression
+
+1. Put a unique phrase only in the private vault; confirm it never appears in Graph, Memory, Dashboard, Resurface, Learning, Goals, local semantic search or Evidence.
+2. Trash an ordinary source note and verify its note-bound intelligence results disappear from active views; restore it and verify its cards/decisions/history return. Existing goal audit records remain, with unavailable sources labeled.
+3. Permanently delete a disposable source and confirm its snapshots/cards/decisions/indexed evidence cascade away. Goal records are kept as an audit with detached source IDs; full reset removes them too.
+4. Reload after recording a decision, rating a recommendation, grading a card and approving a goal step. All persisted state must survive.
+5. Run every new tab at phone width and with dark theme/reduced motion. Record clipping, keyboard traps and missing labels as failures; automated visual acceptance was unavailable for this phase.
+
 ## If a test fails
 
 1. Stop editing the affected item and record the feature, platform/build, exact steps, expected behavior, actual behavior and any visible error.
@@ -209,7 +389,7 @@ Use harmless test content, including for the vault. Do not use Delete all local 
 
 ## Suggested order
 
-Run 1–4, 6–12, 14 without audio, 17–19 web and 20's synthetic vault checks first. Schedule 5's native notification, 13's audio, 15–16's live AI, 18's native share and 20's biometrics for the deferred device/service phase. Full backup/import remains separate work.
+Run baseline B1–B5 and non-destructive B8 checks, then 1–4, 6–12, 14 without audio, 17–19 web and 20's synthetic vault checks. Next run 21–23, 26–30 locally; run 24–25 and 28's local voice after explicit model downloads. Schedule B6–B7, 5's native notification, 13's audio, 15–16's live AI, 18's native share and 20's biometrics for the deferred device/service phase. Full backup/import remains separate work.
 
 ## Preparing the deferred native and gateway passes
 

@@ -1,5 +1,7 @@
 # Twenty-feature expansion audit
 
+Advanced follow-up: [Intelligence audit](INTELLIGENCE_AUDIT.md) and the expanded [baseline + 30 testing guide](FEATURE_TESTING_GUIDE.md) supersede the earlier OCR/canvas/graph limitations where explicitly documented. The verification below describes the previous expansion.
+
 Date: 2026-09-29. Scope: implementations for all twenty proposed feature areas, with explicit first-version boundaries. This is development work, not a production-release certification.
 
 ## Implementation summary

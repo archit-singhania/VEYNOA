@@ -394,7 +394,7 @@ export const repository = {
     await (
       await db()
     ).runAsync(
-      "INSERT OR REPLACE INTO canvas_nodes(id,noteId,text,x,y,parentId) VALUES(?,?,?,?,?,?,?)",
+      "INSERT OR REPLACE INTO canvas_nodes(id,noteId,text,x,y,parentId) VALUES(?,?,?,?,?,?)",
       n.id,
       n.noteId,
       n.text,
@@ -402,6 +402,12 @@ export const repository = {
       n.y,
       n.parentId,
     );
+  },
+  async saveNodes(nodes: CanvasNode[]) {
+    const d = await db();
+    await d.withTransactionAsync(async () => {
+      for (const n of nodes) await this.saveNode(n);
+    });
   },
   async exportData() {
     const d = await db();
@@ -427,6 +433,7 @@ export const repository = {
     const d = await db();
     await d.withTransactionAsync(async () => {
       await d.runAsync("DELETE FROM notes");
+      await d.runAsync("DELETE FROM goals");
       await d.runAsync("DELETE FROM projects");
       await d.runAsync("DELETE FROM templates");
       await d.runAsync("DELETE FROM plans");

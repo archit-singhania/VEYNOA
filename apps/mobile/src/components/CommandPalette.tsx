@@ -64,6 +64,7 @@ export function CommandPalette() {
       }),
     ),
     { name: "Private vault", action: () => router.push("/vault") },
+    { name: "Intelligence studio", action: () => router.push("/intelligence") },
     { name: "Settings", action: () => router.push("/settings") },
   ];
   return (

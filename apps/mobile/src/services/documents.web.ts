@@ -15,6 +15,33 @@ export async function readAttachment(uri: string) {
 function bytes(data: string) {
   return Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
 }
+export async function documentPages(a: Attachment) {
+  if (a.mime !== "application/pdf")
+    return [{ page: 1, text: await extractDocument(a) }];
+  const pdf = await import("pdfjs-dist");
+  pdf.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+  const document = await pdf.getDocument({
+    data: bytes(a.data),
+    isEvalSupported: false,
+  }).promise;
+  try {
+    const pages: { page: number; text: string }[] = [];
+    for (let i = 1; i <= Math.min(document.numPages, 100); i++) {
+      const page = await document.getPage(i);
+      const content = await page.getTextContent();
+      pages.push({
+        page: i,
+        text: content.items
+          .map((x) => ("str" in x ? x.str : ""))
+          .join(" ")
+          .slice(0, 10000),
+      });
+    }
+    return pages;
+  } finally {
+    await document.destroy();
+  }
+}
 export async function openAttachment(a: Attachment) {
   const url = URL.createObjectURL(new Blob([bytes(a.data)], { type: a.mime }));
   const link = document.createElement("a");

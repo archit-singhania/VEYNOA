@@ -1,5 +1,7 @@
 # VEYNOA implementation audit
 
+Latest: [Advanced intelligence implementation and boundaries](INTELLIGENCE_AUDIT.md); [complete baseline + 30 manual tests](FEATURE_TESTING_GUIDE.md).
+
 2026-09-29 expansion: [20-feature audit](FEATURE_EXPANSION_AUDIT.md) and [manual testing guide](FEATURE_TESTING_GUIDE.md). These supersede baseline statements about absent tags, history, attachments and private storage; release and device validation remain incomplete.
 
 Latest follow-up: [Experience and reliability upgrade](EVOLUTION_AUDIT.md) records the new motion, quick capture, recovery, queue and gateway work, with 28 passing tests. The evidence below describes the original baseline.
